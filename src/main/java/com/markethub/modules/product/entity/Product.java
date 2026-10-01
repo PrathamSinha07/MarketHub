@@ -1,7 +1,7 @@
 package com.markethub.modules.product.entity;
 
 import com.markethub.common.entity.BaseEntity;
-import com.markethub.modules.user.entity.User;
+import com.markethub.modules.user.entity.SellerProfile;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -49,7 +49,7 @@ public class Product extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "seller_id", nullable = false)
-    private User seller;
+    private SellerProfile seller;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id", nullable = false)
