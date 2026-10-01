@@ -1,0 +1,23 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "mvnw:compile",
+      "type": "shell",
+      "command": "${workspaceFolder}/mvnw.cmd",
+      "args": ["compile"],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "mvnw:spring-boot:run",
+      "type": "shell",
+      "command": "${workspaceFolder}/mvnw.cmd",
+      "args": ["spring-boot:run"],
+      "group": "build"
+    }
+  ]
+}
