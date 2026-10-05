@@ -8,13 +8,17 @@ import com.markethub.modules.cart.repository.CartItemRepository;
 import com.markethub.modules.cart.repository.CartRepository;
 import com.markethub.modules.order.dto.OrderItemResponse;
 import com.markethub.modules.order.dto.OrderResponse;
+import com.markethub.modules.order.dto.SellerOrderItemResponse;
 import com.markethub.modules.order.entity.Order;
 import com.markethub.modules.order.entity.OrderItem;
 import com.markethub.modules.order.entity.OrderStatus;
+import com.markethub.modules.order.repository.OrderItemRepository;
 import com.markethub.modules.order.repository.OrderRepository;
 import com.markethub.modules.product.entity.Product;
 import com.markethub.modules.product.entity.ProductStatus;
 import com.markethub.modules.product.repository.ProductRepository;
+import com.markethub.modules.user.entity.SellerProfile;
+import com.markethub.modules.user.repository.SellerProfileRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,20 +31,26 @@ import java.util.List;
 public class OrderServiceImpl implements OrderService {
 
     private final OrderRepository orderRepository;
+    private final OrderItemRepository orderItemRepository;
     private final CartRepository cartRepository;
     private final CartItemRepository cartItemRepository;
     private final ProductRepository productRepository;
+    private final SellerProfileRepository sellerProfileRepository;
 
     public OrderServiceImpl(
             OrderRepository orderRepository,
+            OrderItemRepository orderItemRepository,
             CartRepository cartRepository,
             CartItemRepository cartItemRepository,
-            ProductRepository productRepository
+            ProductRepository productRepository,
+            SellerProfileRepository sellerProfileRepository
     ) {
         this.orderRepository = orderRepository;
+        this.orderItemRepository = orderItemRepository;
         this.cartRepository = cartRepository;
         this.cartItemRepository = cartItemRepository;
         this.productRepository = productRepository;
+        this.sellerProfileRepository = sellerProfileRepository;
     }
 
     @Override
@@ -129,6 +139,27 @@ public class OrderServiceImpl implements OrderService {
     public List<OrderResponse> getCustomerOrders(Long userId) {
         return orderRepository.findByUserId(userId).stream()
                 .map(this::toResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<SellerOrderItemResponse> getSellerOrderItems(Long userId) {
+        SellerProfile sellerProfile = sellerProfileRepository.findByUserId(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("SellerProfile", "userId", userId));
+
+        return orderItemRepository.findBySellerId(sellerProfile.getId()).stream()
+                .map(item -> new SellerOrderItemResponse(
+                        item.getOrder().getId(),
+                        item.getId(),
+                        item.getProduct().getId(),
+                        item.getProductName(),
+                        item.getQuantity(),
+                        item.getUnitPrice(),
+                        item.getSubtotal(),
+                        item.getOrder().getStatus(),
+                        item.getOrder().getCreatedAt()
+                ))
                 .toList();
     }
 
