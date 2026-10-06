@@ -34,6 +34,8 @@ public class SecurityConfig {
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/auth/**", "/api/v1/auth/**", "/error", "/v3/api-docs/**", "/swagger-ui/**").permitAll()
+                .requestMatchers(HttpMethod.POST, "/payments/webhook", "/api/v1/payments/webhook").permitAll()
+                .requestMatchers("/payments/**", "/api/v1/payments/**").hasAuthority("ROLE_CUSTOMER")
                 .requestMatchers(HttpMethod.GET, "/api/v1/products/*", "/products/*").permitAll()
                 .requestMatchers(HttpMethod.GET, "/categories/**").permitAll()
                 .requestMatchers("/api/v1/cart/**", "/cart/**").hasAuthority("ROLE_CUSTOMER")

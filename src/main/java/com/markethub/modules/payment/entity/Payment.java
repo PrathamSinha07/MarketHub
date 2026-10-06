@@ -12,6 +12,7 @@ import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -28,6 +29,9 @@ import java.math.BigDecimal;
                 @Index(name = "idx_payments_user_id", columnList = "user_id"),
                 @Index(name = "idx_payments_status", columnList = "status"),
                 @Index(name = "idx_payments_gateway_reference_id", columnList = "gateway_reference_id")
+        },
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uk_payments_user_idempotency", columnNames = {"user_id", "idempotency_key"})
         }
 )
 @Getter
@@ -66,4 +70,7 @@ public class Payment extends BaseEntity {
 
     @Column(name = "gateway_reference_id")
     private String gatewayReferenceId;
+
+    @Column(name = "idempotency_key")
+    private String idempotencyKey;
 }

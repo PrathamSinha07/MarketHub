@@ -1,6 +1,7 @@
 package com.markethub.modules.payment.service;
 
 import com.markethub.modules.payment.dto.PaymentResponse;
+import com.markethub.modules.payment.dto.PaymentWebhookRequest;
 import com.markethub.modules.payment.entity.PaymentMethod;
 import com.markethub.modules.payment.entity.PaymentStatus;
 
@@ -21,4 +22,8 @@ public interface PaymentService {
      * Not exposed to arbitrary customer updates.
      */
     PaymentResponse transitionStatus(Long paymentId, PaymentStatus newStatus);
+
+    PaymentResponse processWebhook(PaymentWebhookRequest request);
+
+    PaymentResponse initiatePayment(Long userId, Long orderId, PaymentMethod paymentMethod, String idempotencyKey);
 }

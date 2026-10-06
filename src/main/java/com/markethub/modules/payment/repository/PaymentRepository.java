@@ -17,4 +17,10 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
     List<Payment> findByUserId(Long userId);
 
     boolean existsByOrderIdAndStatusIn(Long orderId, Collection<PaymentStatus> statuses);
+
+    Optional<Payment> findByUserIdAndIdempotencyKey(Long userId, String idempotencyKey);
+
+    Optional<Payment> findByGatewayReferenceId(String gatewayReferenceId);
+
+    Optional<Payment> findByPaymentReference(String paymentReference);
 }

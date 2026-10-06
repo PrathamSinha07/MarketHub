@@ -46,6 +46,10 @@ class PaymentServiceImplTest {
     private OrderRepository orderRepository;
     @Mock
     private PaymentGateway paymentGateway;
+    @Mock
+    private com.markethub.modules.payment.gateway.PaymentWebhookVerifier paymentWebhookVerifier;
+    @Mock
+    private com.markethub.modules.payment.repository.ProcessedWebhookEventRepository webhookEventRepository;
 
     @InjectMocks
     private PaymentServiceImpl paymentService;
@@ -290,6 +294,52 @@ class PaymentServiceImplTest {
         when(paymentRepository.findById(100L)).thenReturn(Optional.of(payment));
 
         assertThrows(ApiException.class, () -> paymentService.transitionStatus(100L, PaymentStatus.REFUNDED));
+    }
+
+    @Test
+    void initiatePayment_sameIdempotencyKey_returnsExistingPayment() {
+        Payment existing = Payment.builder()
+                .order(order).user(customer).paymentMethod(PaymentMethod.CARD)
+                .status(PaymentStatus.PENDING).amount(order.getTotalAmount())
+                .currency("INR").paymentReference("PAY-1").idempotencyKey("key-123").build();
+        existing.setId(100L);
+        when(paymentRepository.findByUserIdAndIdempotencyKey(1L, "key-123")).thenReturn(Optional.of(existing));
+
+        PaymentResponse response = paymentService.initiatePayment(1L, 10L, PaymentMethod.CARD, "key-123");
+
+        assertEquals(100L, response.getPaymentId());
+        verify(paymentRepository, org.mockito.Mockito.never()).save(any(Payment.class));
+    }
+
+    @Test
+    void initiatePayment_newIdempotencyKey_storesKey() {
+        when(paymentRepository.findByUserIdAndIdempotencyKey(1L, "key-abc")).thenReturn(Optional.empty());
+        when(orderRepository.findById(10L)).thenReturn(Optional.of(order));
+        when(paymentRepository.existsByOrderIdAndStatusIn(eq(10L), anyCollection())).thenReturn(false);
+        when(paymentRepository.save(any(Payment.class))).thenAnswer(inv -> savedPayment(inv.getArgument(0)));
+
+        PaymentResponse response = paymentService.initiatePayment(1L, 10L, PaymentMethod.CARD, "key-abc");
+
+        assertEquals(PaymentStatus.PENDING, response.getStatus());
+        ArgumentCaptor<Payment> captor = ArgumentCaptor.forClass(Payment.class);
+        verify(paymentRepository).save(captor.capture());
+        org.junit.jupiter.api.Assertions.assertEquals("key-abc", captor.getValue().getIdempotencyKey());
+    }
+
+    @Test
+    void initiatePayment_differentCustomerSameKey_notAffected() {
+        when(paymentRepository.findByUserIdAndIdempotencyKey(2L, "key-123")).thenReturn(Optional.empty());
+        Order otherOrder = Order.builder().user(otherCustomer).status(OrderStatus.CONFIRMED)
+                .totalAmount(new BigDecimal("50.00")).build();
+        otherOrder.setId(20L);
+        when(orderRepository.findById(20L)).thenReturn(Optional.of(otherOrder));
+        when(paymentRepository.existsByOrderIdAndStatusIn(eq(20L), anyCollection())).thenReturn(false);
+        when(paymentRepository.save(any(Payment.class))).thenAnswer(inv -> savedPayment(inv.getArgument(0)));
+
+        PaymentResponse response = paymentService.initiatePayment(2L, 20L, PaymentMethod.UPI, "key-123");
+
+        assertEquals(2L, response.getUserId());
+        assertEquals(20L, response.getOrderId());
     }
 
     @Test

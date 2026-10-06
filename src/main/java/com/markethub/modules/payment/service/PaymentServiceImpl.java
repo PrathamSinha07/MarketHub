@@ -9,8 +9,12 @@ import com.markethub.modules.payment.dto.PaymentResponse;
 import com.markethub.modules.payment.entity.Payment;
 import com.markethub.modules.payment.entity.PaymentMethod;
 import com.markethub.modules.payment.entity.PaymentStatus;
+import com.markethub.modules.payment.entity.ProcessedWebhookEvent;
 import com.markethub.modules.payment.gateway.PaymentGateway;
+import com.markethub.modules.payment.gateway.PaymentWebhookVerifier;
 import com.markethub.modules.payment.repository.PaymentRepository;
+import com.markethub.modules.payment.repository.ProcessedWebhookEventRepository;
+import com.markethub.modules.payment.dto.PaymentWebhookRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -30,18 +35,37 @@ public class PaymentServiceImpl implements PaymentService {
     private final PaymentRepository paymentRepository;
     private final OrderRepository orderRepository;
     private final PaymentGateway paymentGateway;
+    private final PaymentWebhookVerifier paymentWebhookVerifier;
+    private final ProcessedWebhookEventRepository webhookEventRepository;
 
     public PaymentServiceImpl(PaymentRepository paymentRepository,
                               OrderRepository orderRepository,
-                              PaymentGateway paymentGateway) {
+                              PaymentGateway paymentGateway,
+                              PaymentWebhookVerifier paymentWebhookVerifier,
+                              ProcessedWebhookEventRepository webhookEventRepository) {
         this.paymentRepository = paymentRepository;
         this.orderRepository = orderRepository;
         this.paymentGateway = paymentGateway;
+        this.paymentWebhookVerifier = paymentWebhookVerifier;
+        this.webhookEventRepository = webhookEventRepository;
     }
 
     @Override
     @Transactional
     public PaymentResponse initiatePayment(Long userId, Long orderId, PaymentMethod paymentMethod) {
+        return initiatePayment(userId, orderId, paymentMethod, null);
+    }
+
+    @Override
+    @Transactional
+    public PaymentResponse initiatePayment(Long userId, Long orderId, PaymentMethod paymentMethod, String idempotencyKey) {
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            Optional<Payment> existing = paymentRepository.findByUserIdAndIdempotencyKey(userId, idempotencyKey);
+            if (existing.isPresent()) {
+                return toResponse(existing.get());
+            }
+        }
+
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
 
@@ -65,6 +89,7 @@ public class PaymentServiceImpl implements PaymentService {
                 .amount(order.getTotalAmount())
                 .currency(DEFAULT_CURRENCY)
                 .paymentReference(generatePaymentReference())
+                .idempotencyKey(idempotencyKey == null || idempotencyKey.isBlank() ? null : idempotencyKey)
                 .build();
 
         // May be null until a real external gateway is integrated.
@@ -123,6 +148,55 @@ public class PaymentServiceImpl implements PaymentService {
 
         payment.setStatus(newStatus);
         return toResponse(paymentRepository.save(payment));
+    }
+
+    @Override
+    @Transactional
+    public PaymentResponse processWebhook(PaymentWebhookRequest request) {
+        if (request.getSignature() == null || request.getSignature().isBlank()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Missing webhook signature");
+        }
+
+        if (!paymentWebhookVerifier.verify(request)) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Webhook verification failed");
+        }
+
+        // Idempotent: a repeated delivery of the same event is a no-op.
+        if (webhookEventRepository.existsByEventId(request.getEventId())) {
+            return paymentRepository.findByGatewayReferenceId(request.getPaymentReference())
+                    .or(() -> paymentRepository.findByPaymentReference(request.getPaymentReference()))
+                    .map(this::toResponse)
+                    .orElseThrow(() -> new ResourceNotFoundException("Payment", "reference", request.getPaymentReference()));
+        }
+
+        Payment payment = paymentRepository.findByGatewayReferenceId(request.getPaymentReference())
+                .or(() -> paymentRepository.findByPaymentReference(request.getPaymentReference()))
+                .orElseThrow(() -> new ResourceNotFoundException("Payment", "reference", request.getPaymentReference()));
+
+        PaymentStatus newStatus;
+        try {
+            newStatus = PaymentStatus.valueOf(request.getStatus().trim().toUpperCase());
+        } catch (IllegalArgumentException | NullPointerException e) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Unknown payment status: " + request.getStatus());
+        }
+
+        if (payment.getStatus() != newStatus) {
+            if (!payment.getStatus().canTransitionTo(newStatus)) {
+                throw new ApiException(HttpStatus.BAD_REQUEST,
+                        "Invalid payment status transition from " + payment.getStatus() + " to " + newStatus);
+            }
+            payment.setStatus(newStatus);
+            paymentRepository.save(payment);
+        }
+
+        webhookEventRepository.save(ProcessedWebhookEvent.builder()
+                .eventId(request.getEventId())
+                .gatewayReferenceId(request.getPaymentReference())
+                .paymentReference(payment.getPaymentReference())
+                .status(newStatus.name())
+                .build());
+
+        return toResponse(payment);
     }
 
     private String generatePaymentReference() {
