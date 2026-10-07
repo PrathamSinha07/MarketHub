@@ -45,6 +45,14 @@ public class CategoryServiceImpl implements CategoryService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public List<CategoryResponse> getRootCategories() {
+        return categoryRepository.findByParentIsNull().stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     @Transactional
     public CategoryResponse updateCategory(Long categoryId, CategoryRequest request) {
         Category category = getCategory(categoryId);

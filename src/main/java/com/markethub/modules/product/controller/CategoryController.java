@@ -36,6 +36,12 @@ public class CategoryController {
         return new ResponseEntity<>(ApiResponse.success(response, "Category created successfully"), HttpStatus.CREATED);
     }
 
+    @GetMapping
+    public ResponseEntity<ApiResponse<List<CategoryResponse>>> getRootCategories() {
+        List<CategoryResponse> response = categoryService.getRootCategories();
+        return ResponseEntity.ok(ApiResponse.success(response, "Categories retrieved successfully"));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<CategoryResponse>> getCategoryById(@PathVariable Long id) {
         CategoryResponse response = categoryService.getCategoryById(id);

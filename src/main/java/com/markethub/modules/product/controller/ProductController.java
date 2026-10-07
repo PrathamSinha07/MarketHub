@@ -6,6 +6,9 @@ import com.markethub.modules.product.dto.ProductResponse;
 import com.markethub.modules.product.service.ProductService;
 import com.markethub.security.CustomUserDetails;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -17,6 +20,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -37,6 +41,15 @@ public class ProductController {
     ) {
         ProductResponse response = productService.createProduct(userDetails.getUser().getId(), request);
         return new ResponseEntity<>(ApiResponse.success(response, "Product created successfully"), HttpStatus.CREATED);
+    }
+
+    @GetMapping
+    public ResponseEntity<ApiResponse<Page<ProductResponse>>> getActiveProducts(
+            @RequestParam(required = false) Long categoryId,
+            @PageableDefault(size = 20, sort = "createdAt", direction = org.springframework.data.domain.Sort.Direction.DESC) Pageable pageable
+    ) {
+        Page<ProductResponse> response = productService.getActiveProducts(categoryId, pageable);
+        return ResponseEntity.ok(ApiResponse.success(response, "Products retrieved successfully"));
     }
 
     @GetMapping("/{id}")

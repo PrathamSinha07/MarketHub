@@ -11,6 +11,8 @@ import com.markethub.modules.product.repository.CategoryRepository;
 import com.markethub.modules.product.repository.ProductRepository;
 import com.markethub.modules.user.entity.SellerProfile;
 import com.markethub.modules.user.repository.SellerProfileRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -58,6 +60,15 @@ public class ProductServiceImpl implements ProductService {
     public ProductResponse getProductById(Long productId) {
         Product product = getProduct(productId);
         return toResponse(product);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<ProductResponse> getActiveProducts(Long categoryId, Pageable pageable) {
+        Page<Product> products = (categoryId != null)
+                ? productRepository.findByCategoryIdAndStatus(categoryId, ProductStatus.ACTIVE, pageable)
+                : productRepository.findByStatus(ProductStatus.ACTIVE, pageable);
+        return products.map(this::toResponse);
     }
 
     @Override
@@ -121,6 +132,7 @@ public class ProductServiceImpl implements ProductService {
                 product.getStockQuantity(),
                 product.getStatus(),
                 product.getSeller().getId(),
+                product.getSeller().getStoreName(),
                 product.getCategory().getId(),
                 product.getCreatedAt(),
                 product.getUpdatedAt()
