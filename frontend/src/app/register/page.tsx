@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { AuthCard } from "@/components/auth/AuthCard";
 import { RegisterForm } from "@/components/auth/RegisterForm";
+import { RequireGuest } from "@/components/auth/RequireGuest";
 
 export const metadata: Metadata = {
   title: "Create account",
@@ -12,21 +13,23 @@ export default function RegisterPage() {
   return (
     <div className="flex flex-1 items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
-        <AuthCard
-          title="Create your account"
-          subtitle="Join MarketHub as a customer, or register a store and start selling."
-        >
-          <RegisterForm />
-          <p className="mt-6 text-center text-sm text-zinc-500">
-            Already have an account?{" "}
-            <Link
-              href="/login"
-              className="font-medium text-indigo-600 hover:text-indigo-500"
-            >
-              Sign in
-            </Link>
-          </p>
-        </AuthCard>
+        <RequireGuest>
+          <AuthCard
+            title="Create your account"
+            subtitle="Join MarketHub as a customer, or register a store and start selling."
+          >
+            <RegisterForm />
+            <p className="mt-6 text-center text-sm text-zinc-500">
+              Already have an account?{" "}
+              <Link
+                href="/login"
+                className="font-medium text-indigo-600 hover:text-indigo-500"
+              >
+                Sign in
+              </Link>
+            </p>
+          </AuthCard>
+        </RequireGuest>
       </div>
     </div>
   );

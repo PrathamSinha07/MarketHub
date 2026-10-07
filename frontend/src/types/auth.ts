@@ -24,3 +24,18 @@ export interface AuthResponse {
   role: string;
   userId: number;
 }
+
+/** Authenticated user exposed to the frontend UI. */
+export interface AuthUser {
+  userId: number;
+  email: string;
+  role: Role;
+}
+
+/** Session persisted on the client after a successful login or register. */
+export interface AuthSession {
+  token: string;
+  user: AuthUser;
+  /** JWT expiry in epoch milliseconds, or null when the token has no exp claim. */
+  expiresAt: number | null;
+}

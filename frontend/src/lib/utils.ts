@@ -1,4 +1,5 @@
 import { ApiError } from "@/lib/api-client";
+import type { Role } from "@/types/auth";
 
 /** Combines conditional class names. */
 export function cn(...parts: Array<string | false | null | undefined>): string {
@@ -31,6 +32,31 @@ export function getStockStatus(stockQuantity: number): StockStatus {
     return { label: `Only ${stockQuantity} left in stock`, tone: "low-stock" };
   }
   return { label: "In stock", tone: "in-stock" };
+}
+
+/** Maps backend role constants to display labels. */
+export function formatRole(role: Role): string {
+  switch (role) {
+    case "ROLE_ADMIN":
+      return "Admin";
+    case "ROLE_SELLER":
+      return "Seller";
+    case "ROLE_CUSTOMER":
+      return "Customer";
+    default:
+      return role;
+  }
+}
+
+/** Keeps post-login redirects on-site (relative paths only). */
+export function safeRedirectPath(value: string | undefined): string {
+  if (!value) {
+    return "/";
+  }
+  if (value.startsWith("/") && !value.startsWith("//")) {
+    return value;
+  }
+  return "/";
 }
 
 export function isApiError(error: unknown): error is ApiError {

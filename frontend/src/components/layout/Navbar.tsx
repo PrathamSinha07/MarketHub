@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useAuth } from "@/context/AuthContext";
 import { useCategories } from "@/hooks/useCategories";
-import { cn } from "@/lib/utils";
+import { cn, formatRole } from "@/lib/utils";
 import { Logo } from "./Logo";
 
 function NavLink({
@@ -120,6 +121,8 @@ function ChevronDownIcon({ className }: { className?: string }) {
 
 export function Navbar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const { user, restoring, logout } = useAuth();
   const { data: categories } = useCategories();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [categoriesOpen, setCategoriesOpen] = useState(false);
@@ -128,6 +131,12 @@ export function Navbar() {
     pathname === "/products" || pathname.startsWith("/products/");
   const rootCategories = categories ?? [];
   const closeMobileMenu = () => setMobileMenuOpen(false);
+
+  function handleLogout() {
+    logout();
+    setMobileMenuOpen(false);
+    setCategoriesOpen(false);
+  }
 
   return (
     <header className="sticky top-0 z-40 border-b border-zinc-200 bg-white">
@@ -199,20 +208,43 @@ export function Navbar() {
           <NavLink href="/cart" label="Cart" active={pathname === "/cart"} />
         </nav>
 
-        <div className="hidden items-center gap-1 md:flex">
-          <Link
-            href="/login"
-            className="rounded-md px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100"
-          >
-            Sign in
-          </Link>
-          <Link
-            href="/register"
-            className="rounded-md bg-indigo-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-          >
-            Create account
-          </Link>
-        </div>
+        {restoring ? (
+          <div
+            className="hidden h-9 w-36 animate-pulse rounded-md bg-zinc-100 md:block"
+            aria-hidden="true"
+          />
+        ) : user ? (
+          <div className="hidden items-center gap-3 md:flex">
+            <div className="hidden text-right lg:block">
+              <p className="max-w-44 truncate text-sm font-medium text-zinc-900">
+                {user.email}
+              </p>
+              <p className="text-xs text-zinc-500">{formatRole(user.role)}</p>
+            </div>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50"
+            >
+              Sign out
+            </button>
+          </div>
+        ) : (
+          <div className="hidden items-center gap-1 md:flex">
+            <Link
+              href="/login"
+              className="rounded-md px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100"
+            >
+              Sign in
+            </Link>
+            <Link
+              href="/register"
+              className="rounded-md bg-indigo-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+            >
+              Create account
+            </Link>
+          </div>
+        )}
 
         <button
           type="button"
@@ -271,22 +303,48 @@ export function Navbar() {
               onClick={closeMobileMenu}
             />
 
-            <div className="flex gap-2 pt-3">
-              <Link
-                href="/login"
-                onClick={closeMobileMenu}
-                className="flex-1 rounded-md border border-zinc-300 px-3 py-2 text-center text-sm font-medium text-zinc-700 hover:bg-zinc-50"
-              >
-                Sign in
-              </Link>
-              <Link
-                href="/register"
-                onClick={closeMobileMenu}
-                className="flex-1 rounded-md bg-indigo-600 px-3 py-2 text-center text-sm font-medium text-white hover:bg-indigo-700"
-              >
-                Create account
-              </Link>
-            </div>
+            {restoring ? (
+              <div
+                className="mt-3 h-10 animate-pulse rounded-md bg-zinc-100"
+                aria-hidden="true"
+              />
+            ) : user ? (
+              <div className="pt-3">
+                <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                  Account
+                </p>
+                <p className="truncate px-3 pb-1 text-sm font-medium text-zinc-900">
+                  {user.email}
+                </p>
+                <p className="px-3 pb-2 text-xs text-zinc-500">
+                  {formatRole(user.role)}
+                </p>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="w-full rounded-md border border-zinc-300 px-3 py-2 text-center text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+                >
+                  Sign out
+                </button>
+              </div>
+            ) : (
+              <div className="flex gap-2 pt-3">
+                <Link
+                  href="/login"
+                  onClick={closeMobileMenu}
+                  className="flex-1 rounded-md border border-zinc-300 px-3 py-2 text-center text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+                >
+                  Sign in
+                </Link>
+                <Link
+                  href="/register"
+                  onClick={closeMobileMenu}
+                  className="flex-1 rounded-md bg-indigo-600 px-3 py-2 text-center text-sm font-medium text-white hover:bg-indigo-700"
+                >
+                  Create account
+                </Link>
+              </div>
+            )}
           </div>
         </nav>
       )}

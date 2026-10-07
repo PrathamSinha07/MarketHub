@@ -1,5 +1,9 @@
 import { API_BASE_URL } from "@/lib/config";
-import { getAuthToken } from "@/lib/session";
+import {
+  clearAuthSession,
+  getAuthToken,
+  notifySessionExpired,
+} from "@/lib/session";
 import type { ApiResponse, FieldErrors } from "@/types/api";
 
 /**
@@ -75,6 +79,12 @@ async function request<T>(
   }
 
   if (!response.ok) {
+    if (response.status === 401) {
+      // The token was rejected or expired — drop the persisted
+      // session and let the auth context sign the user out.
+      clearAuthSession();
+      notifySessionExpired();
+    }
     const message =
       payload && typeof payload.message === "string" && payload.message.length > 0
         ? payload.message

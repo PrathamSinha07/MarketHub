@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { authService } from "@/services/authService";
+import { useRouter } from "next/navigation";
 import { errorMessage } from "@/lib/api-client";
-import { isApiError } from "@/lib/utils";
-import type { AuthResponse, Role } from "@/types/auth";
+import { cn, isApiError } from "@/lib/utils";
+import { useAuth } from "@/context/AuthContext";
+import type { Role } from "@/types/auth";
 import type { FieldErrors } from "@/types/api";
 import { AuthCard } from "./AuthCard";
 import {
@@ -12,11 +13,13 @@ import {
   inputClass,
   inputErrorClass,
 } from "@/components/shared/FormField";
-import { cn } from "@/lib/utils";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function RegisterForm() {
+  const router = useRouter();
+  const { register } = useAuth();
+
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -28,7 +31,6 @@ export function RegisterForm() {
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [serverError, setServerError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [result, setResult] = useState<AuthResponse | null>(null);
 
   const isSeller = role === "ROLE_SELLER";
 
@@ -66,7 +68,9 @@ export function RegisterForm() {
 
     setSubmitting(true);
     try {
-      const response = await authService.register({
+      // The backend issues a session with the registration
+      // response, so the new account is signed in immediately.
+      await register({
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         email: email.trim(),
@@ -75,8 +79,7 @@ export function RegisterForm() {
         storeName: isSeller ? storeName.trim() : undefined,
         storeDescription: isSeller ? storeDescription.trim() : undefined,
       });
-      // Session persistence is intentionally not implemented yet.
-      setResult(response);
+      router.replace("/");
     } catch (error) {
       if (isApiError(error)) {
         setServerError(error.message);
@@ -89,31 +92,6 @@ export function RegisterForm() {
     } finally {
       setSubmitting(false);
     }
-  }
-
-  if (result) {
-    return (
-      <AuthCard
-        title="Account created"
-        subtitle="Your MarketHub account was registered successfully."
-      >
-        <dl className="space-y-3 rounded-md bg-zinc-50 px-4 py-3 text-sm">
-          <div className="flex justify-between gap-4">
-            <dt className="text-zinc-500">Email</dt>
-            <dd className="font-medium text-zinc-900">{result.email}</dd>
-          </div>
-          <div className="flex justify-between gap-4">
-            <dt className="text-zinc-500">Role</dt>
-            <dd className="font-medium text-zinc-900">{result.role}</dd>
-          </div>
-        </dl>
-        <p className="mt-4 rounded-md bg-zinc-50 px-3 py-2 text-xs leading-5 text-zinc-500">
-          Session persistence is not enabled yet. The authentication state
-          manager will be connected in the next step, after which you will be
-          signed in automatically.
-        </p>
-      </AuthCard>
-    );
   }
 
   return (
