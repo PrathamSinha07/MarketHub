@@ -53,7 +53,14 @@ export function safeRedirectPath(value: string | undefined): string {
   if (!value) {
     return "/";
   }
-  if (value.startsWith("/") && !value.startsWith("//")) {
+  // Reject protocol-relative ("//host") and backslash-smuggled
+  // ("/\host") values — URL parsers treat "\" as "/" for special
+  // schemes, so both would leave the site.
+  if (
+    value.startsWith("/") &&
+    !value.startsWith("//") &&
+    !value.startsWith("/\\")
+  ) {
     return value;
   }
   return "/";

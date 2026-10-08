@@ -28,7 +28,12 @@ export function RequireAuth({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!restoring && !user) {
-      router.replace(`/login?next=${encodeURIComponent(pathname)}`);
+      // Read the query on the client inside the effect: avoids
+      // `useSearchParams` (which would require a Suspense boundary
+      // around the protected page) and captures the full URL.
+      const query = window.location.search;
+      const returnTo = query ? `${pathname}${query}` : pathname;
+      router.replace(`/login?next=${encodeURIComponent(returnTo)}`);
     }
   }, [restoring, user, router, pathname]);
 

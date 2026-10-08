@@ -22,9 +22,9 @@ type Notice =
 /**
  * Add-to-cart button wired to the cart service layer.
  *
- * Cart mutation is not active yet: without an authentication session the
- * button prompts the user to sign in. Once the authentication state manager
- * is connected, the service call below will execute with the stored token.
+ * Reads the authentication session at click time: without one the
+ * button prompts the user to sign in, otherwise the service call runs
+ * with the stored token attached by the API client.
  */
 export function AddToCartButton({
   productId,
