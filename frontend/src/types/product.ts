@@ -16,6 +16,16 @@ export interface Product {
   updatedAt: string;
 }
 
+/** Matches `ProductRequest` from the backend (POST /products). */
+export interface ProductRequest {
+  name: string;
+  slug: string;
+  description?: string;
+  price: number;
+  stockQuantity: number;
+  categoryId: number;
+}
+
 /** Spring Data page returned by GET /products. */
 export interface ProductPage {
   content: Product[];
