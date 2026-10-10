@@ -16,8 +16,8 @@ export function FeaturedProductsSection() {
   return (
     <section aria-labelledby="featured-heading">
       <SectionHeader
-        title="Featured products"
-        description="New arrivals from sellers on the marketplace."
+        title="New arrivals"
+        description="The most recently listed products on the marketplace."
         actionHref="/products"
         actionLabel="View all products"
       />

@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import { Hero } from "@/components/home/Hero";
 import { CategorySection } from "@/components/home/CategorySection";
 import { FeaturedProductsSection } from "@/components/home/FeaturedProductsSection";
+import { ValueSection } from "@/components/home/ValueSection";
 import { SellCta } from "@/components/home/SellCta";
+import { container } from "@/lib/ui";
 
 export const metadata: Metadata = {
   title: "Multi-vendor marketplace",
@@ -14,9 +16,10 @@ export default function HomePage() {
   return (
     <>
       <Hero />
-      <div className="mx-auto max-w-7xl space-y-16 px-4 py-12 sm:px-6 lg:px-8">
+      <div className={`${container} space-y-14 py-12 sm:py-16`}>
         <CategorySection />
         <FeaturedProductsSection />
+        <ValueSection />
       </div>
       <SellCta />
     </>
