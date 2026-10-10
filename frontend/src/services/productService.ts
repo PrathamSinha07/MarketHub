@@ -33,11 +33,20 @@ export const productService = {
    * Lists active products, optionally filtered by category (newest first).
    *
    * NOTE: this is the public marketplace catalog — it returns every
-   * seller's ACTIVE products, not the caller's own. The backend does
-   * not currently expose a seller-scoped product listing endpoint.
+   * seller's ACTIVE products, not the caller's own.
    */
   getProducts(params: GetProductsParams = {}): Promise<ProductPage> {
     return apiClient.get<ProductPage>(`/products${toQuery(params)}`);
+  },
+
+  /**
+   * Lists the signed-in seller's own products (ROLE_SELLER required).
+   * The backend derives seller ownership from the JWT and returns every
+   * status (draft, active, archived) — no seller id is sent from the
+   * client, and other sellers' products are never included.
+   */
+  getSellerProducts(params: GetSellerProductsParams = {}): Promise<ProductPage> {
+    return apiClient.get<ProductPage>(`/products/seller${toQuery(params)}`);
   },
 
   getProductById(id: number): Promise<Product> {
@@ -51,5 +60,24 @@ export const productService = {
    */
   createProduct(request: ProductRequest): Promise<Product> {
     return apiClient.post<Product>("/products", request);
+  },
+
+  /**
+   * Updates the signed-in seller's product (ROLE_SELLER required).
+   * The backend re-derives ownership from the JWT: updating another
+   * seller's product by id fails with 403. Product status is never
+   * changed by this endpoint (archived products stay archived).
+   */
+  updateProduct(id: number, request: ProductRequest): Promise<Product> {
+    return apiClient.put<Product>(`/products/${id}`, request);
+  },
+
+  /**
+   * Archives the signed-in seller's product (ROLE_SELLER required).
+   * Archived products disappear from the public catalog and cannot be
+   * added to carts. Ownership is enforced on the backend.
+   */
+  archiveProduct(id: number): Promise<void> {
+    return apiClient.del<void>(`/products/${id}`);
   },
 };

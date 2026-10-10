@@ -58,6 +58,16 @@ public class ProductController {
         return ResponseEntity.ok(ApiResponse.success(response, "Product retrieved successfully"));
     }
 
+    @GetMapping("/seller")
+    @PreAuthorize("hasAuthority('ROLE_SELLER')")
+    public ResponseEntity<ApiResponse<Page<ProductResponse>>> getSellerProducts(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PageableDefault(size = 20, sort = "createdAt", direction = org.springframework.data.domain.Sort.Direction.DESC) Pageable pageable
+    ) {
+        Page<ProductResponse> response = productService.getProductsForSeller(userDetails.getUser().getId(), pageable);
+        return ResponseEntity.ok(ApiResponse.success(response, "Seller products retrieved successfully"));
+    }
+
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('ROLE_SELLER')")
     public ResponseEntity<ApiResponse<ProductResponse>> updateProduct(

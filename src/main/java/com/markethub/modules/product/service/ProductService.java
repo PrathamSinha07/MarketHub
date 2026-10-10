@@ -13,6 +13,8 @@ public interface ProductService {
 
     Page<ProductResponse> getActiveProducts(Long categoryId, Pageable pageable);
 
+    Page<ProductResponse> getProductsForSeller(Long userId, Pageable pageable);
+
     ProductResponse updateProduct(Long userId, Long productId, ProductRequest request);
 
     void archiveProduct(Long userId, Long productId);

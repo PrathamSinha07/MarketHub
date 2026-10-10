@@ -114,26 +114,104 @@ function buildCategoryNameMap(roots: Category[]): Map<number, string> {
 /**
  * Seller product-management area.
  *
- * The backend has no seller-scoped product listing endpoint, so this
- * table intentionally shows the public marketplace catalog (newest
- * active products, all sellers) with a clear notice — it does not
- * pretend to be a "my products" list. Creating products works and the
- * backend assigns ownership from the JWT.
+ * Lists only the signed-in seller's products via the seller-scoped
+ * endpoint (`GET /products/seller`). The backend resolves ownership
+ * from the JWT, so other sellers' products never appear here and the
+ * client never supplies a seller id.
  */
 export function SellerProductsView() {
   const [page, setPage] = useState(0);
+  const [confirmArchiveId, setConfirmArchiveId] = useState<number | null>(null);
+  const [archivingId, setArchivingId] = useState<number | null>(null);
+  const [archiveError, setArchiveError] = useState<string | null>(null);
   const { data: categories } = useCategories();
   const {
     page: productPage,
     loading,
     error,
     reload,
-  } = useProducts({ page, size: PAGE_SIZE });
+  } = useSellerProducts({ page, size: PAGE_SIZE });
 
   const categoryNameById = useMemo(
     () => buildCategoryNameMap(categories ?? []),
     [categories]
   );
+
+  async function handleArchive(product: Product) {
+    if (archivingId !== null) {
+      return;
+    }
+    setArchivingId(product.id);
+    setArchiveError(null);
+    try {
+      await productService.archiveProduct(product.id);
+      setConfirmArchiveId(null);
+      // Refresh the list; if this was the last product on a later page,
+      // step back a page instead of showing an empty one.
+      if (productPage && productPage.content.length === 1 && page > 0) {
+        setPage(page - 1);
+      } else {
+        reload();
+      }
+    } catch (err) {
+      setArchiveError(errorMessage(err));
+    } finally {
+      setArchivingId(null);
+    }
+  }
+
+  function renderActions(product: Product) {
+    const isArchived = product.status === "ARCHIVED";
+    const confirming = confirmArchiveId === product.id;
+    const archiving = archivingId === product.id;
+
+    return (
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+        <Link
+          href={`/products/${product.id}`}
+          className="font-medium text-indigo-600 hover:text-indigo-500"
+        >
+          View
+        </Link>
+        <Link
+          href={`/seller/products/${product.id}/edit`}
+          className="font-medium text-indigo-600 hover:text-indigo-500"
+        >
+          Edit
+        </Link>
+        {!isArchived &&
+          (confirming ? (
+            <span className="inline-flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => handleArchive(product)}
+                disabled={archivingId !== null}
+                className="font-medium text-red-600 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {archiving ? "Archiving…" : "Confirm"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmArchiveId(null)}
+                disabled={archivingId !== null}
+                className="font-medium text-zinc-500 hover:text-zinc-700 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setConfirmArchiveId(product.id)}
+              disabled={archivingId !== null}
+              className="font-medium text-red-600 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Archive
+            </button>
+          ))}
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -155,17 +233,21 @@ export function SellerProductsView() {
       </header>
 
       <div className="mb-6 rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-600">
-        <p className="font-medium text-zinc-800">
-          Showing the public marketplace catalog
-        </p>
-        <p className="mt-1">
-          The API does not expose a seller-scoped product listing yet, so this
-          table lists the newest active products from the whole marketplace
-          rather than only your own. Draft, out-of-stock and archived products
-          are not available through the API. New products you create appear
-          here (they are published as active immediately).
+        <p>
+          These are your products only. Archived products stay listed here
+          so you can keep track of them; they are hidden from the
+          marketplace and cannot be added to carts.
         </p>
       </div>
+
+      {archiveError && (
+        <p
+          className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700"
+          role="alert"
+        >
+          {archiveError}
+        </p>
+      )}
 
       {loading && <TableSkeleton />}
 
@@ -181,7 +263,7 @@ export function SellerProductsView() {
         productPage.content.length === 0 ? (
           <EmptyState
             title="No products yet"
-            message="No active products are listed on the marketplace yet. Add your first product to get started."
+            message="You have not added any products yet. Add your first product to start selling on MarketHub."
             actionHref="/seller/products/new"
             actionLabel="Add product"
           />
@@ -223,12 +305,7 @@ export function SellerProductsView() {
                         <ProductStatusBadge status={product.status} />
                       </td>
                       <td className="px-4 py-3">
-                        <Link
-                          href={`/products/${product.id}`}
-                          className="font-medium text-indigo-600 hover:text-indigo-500"
-                        >
-                          View
-                        </Link>
+                        {renderActions(product)}
                       </td>
                     </tr>
                   ))}
@@ -237,9 +314,9 @@ export function SellerProductsView() {
             </div>
 
             <p className="pt-4 text-sm text-zinc-500">
-              {productPage.totalElements} active{" "}
-              {productPage.totalElements === 1 ? "product" : "products"} in the
-              marketplace
+              {productPage.totalElements}{" "}
+              {productPage.totalElements === 1 ? "product" : "products"} in
+              your store
             </p>
 
             {productPage.totalPages > 1 && (

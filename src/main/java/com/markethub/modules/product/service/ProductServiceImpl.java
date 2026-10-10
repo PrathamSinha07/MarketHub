@@ -72,6 +72,14 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public Page<ProductResponse> getProductsForSeller(Long userId, Pageable pageable) {
+        SellerProfile sellerProfile = getSellerProfile(userId);
+        Page<Product> products = productRepository.findBySellerId(sellerProfile.getId(), pageable);
+        return products.map(this::toResponse);
+    }
+
+    @Override
     @Transactional
     public ProductResponse updateProduct(Long userId, Long productId, ProductRequest request) {
         SellerProfile sellerProfile = getSellerProfile(userId);
