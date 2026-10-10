@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useAuth } from "@/context/AuthContext";
+import { useCart } from "@/context/CartContext";
 import { cartService } from "@/services/cartService";
 import { errorMessage } from "@/lib/api-client";
-import { getAuthToken } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
 interface AddToCartButtonProps {
@@ -16,15 +18,17 @@ interface AddToCartButtonProps {
 type Notice =
   | { kind: "none" }
   | { kind: "auth-required" }
+  | { kind: "role-restricted" }
   | { kind: "added" }
   | { kind: "error"; message: string };
 
 /**
  * Add-to-cart button wired to the cart service layer.
  *
- * Reads the authentication session at click time: without one the
- * button prompts the user to sign in, otherwise the service call runs
- * with the stored token attached by the API client.
+ * Behaviour depends on the session: guests are prompted to sign in,
+ * signed-in non-customer roles (seller/admin) get an explanation
+ * instead of a raw 403, and customer additions push the returned cart
+ * into the shared cart context so the navbar count updates at once.
  */
 export function AddToCartButton({
   productId,
@@ -33,18 +37,25 @@ export function AddToCartButton({
 }: AddToCartButtonProps) {
   const [notice, setNotice] = useState<Notice>({ kind: "none" });
   const [submitting, setSubmitting] = useState(false);
+  const { user } = useAuth();
+  const { applyCart } = useCart();
+  const pathname = usePathname();
 
   async function handleAddToCart() {
-    const token = getAuthToken();
-    if (!token) {
+    if (!user) {
       setNotice({ kind: "auth-required" });
+      return;
+    }
+    if (user.role !== "ROLE_CUSTOMER") {
+      setNotice({ kind: "role-restricted" });
       return;
     }
 
     setSubmitting(true);
     setNotice({ kind: "none" });
     try {
-      await cartService.addToCart({ productId, quantity });
+      const cart = await cartService.addToCart({ productId, quantity });
+      applyCart(cart);
       setNotice({ kind: "added" });
     } catch (error) {
       setNotice({ kind: "error", message: errorMessage(error) });
@@ -70,17 +81,30 @@ export function AddToCartButton({
       {notice.kind === "auth-required" && (
         <p className="mt-3 rounded-md bg-zinc-50 px-3 py-2 text-sm text-zinc-600">
           <Link
-            href="/login"
+            href={`/login?next=${encodeURIComponent(pathname)}`}
             className="font-medium text-indigo-600 hover:underline"
           >
             Sign in
           </Link>{" "}
-          to add products to your cart.
+          with a customer account to add products to your cart.
+        </p>
+      )}
+      {notice.kind === "role-restricted" && (
+        <p className="mt-3 rounded-md bg-zinc-50 px-3 py-2 text-sm text-zinc-600">
+          {user?.role === "ROLE_SELLER"
+            ? "Seller accounts don't include a shopping cart. Sign in with a customer account to buy."
+            : "This account doesn't include a shopping cart. Sign in with a customer account to buy."}
         </p>
       )}
       {notice.kind === "added" && (
-        <p className="mt-3 text-sm font-medium text-emerald-600">
-          Added to your cart.
+        <p
+          className="mt-3 text-sm font-medium text-emerald-600"
+          role="status"
+        >
+          Added to your cart.{" "}
+          <Link href="/cart" className="font-semibold text-indigo-600 hover:underline">
+            View cart
+          </Link>
         </p>
       )}
       {notice.kind === "error" && (

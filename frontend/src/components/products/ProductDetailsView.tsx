@@ -7,9 +7,15 @@ import { useCategory } from "@/hooks/useCategory";
 import { StockBadge } from "@/components/products/StockBadge";
 import { QuantitySelector } from "@/components/products/QuantitySelector";
 import { AddToCartButton } from "@/components/products/AddToCartButton";
+import { ProductMedia } from "@/components/products/ProductMedia";
 import { ProductDetailsSkeleton } from "@/components/products/ProductDetailsSkeleton";
 import { ErrorState } from "@/components/shared/ErrorState";
-import { formatDate, formatPrice, getStockStatus } from "@/lib/utils";
+import {
+  formatDate,
+  formatPrice,
+  formatProductStatus,
+  getStockStatus,
+} from "@/lib/utils";
 
 export function ProductDetailsView({
   productId,
@@ -40,21 +46,37 @@ export function ProductDetailsView({
 
   const outOfStock = product.stockQuantity <= 0;
   const stock = getStockStatus(product.stockQuantity);
+  // The public endpoint also returns DRAFT/ARCHIVED/OUT_OF_STOCK
+  // products, but only ACTIVE ones may be purchased (the server
+  // enforces this too — this gate just explains it up front).
+  const purchasable = product.status === "ACTIVE" && !outOfStock;
 
   return (
     <article aria-labelledby="product-name">
-      <div className="grid gap-10 lg:grid-cols-[1fr_360px]">
-        <div>
-          <h1
-            id="product-name"
-            className="text-2xl font-semibold tracking-tight text-zinc-900 sm:text-3xl"
-          >
-            {product.name}
-          </h1>
+      <header>
+        <h1
+          id="product-name"
+          className="text-2xl font-semibold tracking-tight text-zinc-900 sm:text-3xl"
+        >
+          {product.name}
+        </h1>
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <StockBadge quantity={product.stockQuantity} />
+          {product.status !== "ACTIVE" && (
+            <span className="inline-flex items-center rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-600 ring-1 ring-inset ring-zinc-500/20">
+              {formatProductStatus(product.status)}
+            </span>
+          )}
+        </div>
+      </header>
 
-          <div className="mt-3">
-            <StockBadge quantity={product.stockQuantity} />
-          </div>
+      <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="min-w-0">
+          <ProductMedia
+            name={product.name}
+            size="lg"
+            className="aspect-[4/3] w-full rounded-lg border border-zinc-200"
+          />
 
           <section className="mt-8" aria-labelledby="description-heading">
             <h2
@@ -108,17 +130,30 @@ export function ProductDetailsView({
               </div>
               <div className="flex py-3">
                 <dt className="w-36 shrink-0 text-zinc-500">Status</dt>
-                <dd className="text-zinc-900">{product.status}</dd>
+                <dd className="text-zinc-900">
+                  {formatProductStatus(product.status)}
+                </dd>
               </div>
             </dl>
           </section>
         </div>
 
         <aside className="h-fit rounded-lg border border-zinc-200 bg-white p-6 lg:sticky lg:top-24">
-          <p className="text-2xl font-semibold tracking-tight text-zinc-900">
+          <p className="text-3xl font-semibold tracking-tight text-zinc-900">
             {formatPrice(product.price)}
           </p>
           <p className="mt-1.5 text-sm text-zinc-500">{stock.label}</p>
+
+          {!purchasable && (
+            <p
+              role="status"
+              className="mt-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800"
+            >
+              {product.status !== "ACTIVE"
+                ? `This product isn't available for purchase right now — its status is ${formatProductStatus(product.status).toLowerCase()}.`
+                : "This product is out of stock and can't be added to your cart."}
+            </p>
+          )}
 
           <div className="mt-6">
             <label
@@ -132,7 +167,7 @@ export function ProductDetailsView({
                 quantity={quantity}
                 max={Math.max(product.stockQuantity, 1)}
                 onChange={setQuantity}
-                disabled={outOfStock}
+                disabled={!purchasable}
               />
             </div>
           </div>
@@ -141,7 +176,7 @@ export function ProductDetailsView({
             <AddToCartButton
               productId={product.id}
               quantity={quantity}
-              disabled={outOfStock}
+              disabled={!purchasable}
             />
           </div>
 

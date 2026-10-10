@@ -1,10 +1,13 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 
 interface EmptyStateProps {
   title: string;
   message: string;
   actionHref?: string;
   actionLabel?: string;
+  /** Optional custom action rendered below the message. */
+  children?: ReactNode;
 }
 
 export function EmptyState({
@@ -12,6 +15,7 @@ export function EmptyState({
   message,
   actionHref,
   actionLabel,
+  children,
 }: EmptyStateProps) {
   return (
     <div className="rounded-lg border border-dashed border-zinc-300 bg-white px-6 py-14 text-center">
@@ -42,6 +46,7 @@ export function EmptyState({
           {actionLabel}
         </Link>
       )}
+      {children}
     </div>
   );
 }
