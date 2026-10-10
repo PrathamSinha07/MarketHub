@@ -3,12 +3,14 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useCategories } from "@/hooks/useCategories";
-import { useProducts } from "@/hooks/useProducts";
+import { useSellerProducts } from "@/hooks/useSellerProducts";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { StockBadge } from "@/components/products/StockBadge";
 import { ProductStatusBadge } from "@/components/seller/ProductStatusBadge";
+import { errorMessage } from "@/lib/api-client";
 import { formatPrice } from "@/lib/utils";
+import { productService } from "@/services/productService";
 import type { Category } from "@/types/category";
 import type { Product } from "@/types/product";
 

@@ -7,6 +7,11 @@ export interface GetProductsParams {
   size?: number;
 }
 
+export interface GetSellerProductsParams {
+  page?: number;
+  size?: number;
+}
+
 function toQuery(params: GetProductsParams): string {
   const searchParams = new URLSearchParams();
   if (params.categoryId !== undefined) {
