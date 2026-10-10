@@ -16,3 +16,21 @@ body {
   background-color: #e0e7ff;
   color: #1e1b4b;
 }
+
+/* Consistent, visible keyboard focus across interactive elements. */
+:focus-visible {
+  outline: 2px solid #4f46e5;
+  outline-offset: 2px;
+}
+
+/* Honor the OS reduced-motion preference for every animation. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

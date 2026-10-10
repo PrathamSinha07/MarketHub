@@ -1,4 +1,5 @@
 import { Logo } from "./Logo";
+import { container } from "@/lib/ui";
 
 /**
  * Static shell rendered while the interactive navbar streams in.
@@ -7,9 +8,12 @@ import { Logo } from "./Logo";
 export function NavbarSkeleton() {
   return (
     <header className="sticky top-0 z-40 border-b border-zinc-200 bg-white">
-      <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:px-6 lg:px-8">
-        <Logo />
-        <div className="hidden h-4 w-48 animate-pulse rounded bg-zinc-100 md:block" />
+      <div className={container}>
+        <div className="flex h-16 items-center gap-4">
+          <Logo />
+          <div className="hidden h-9 w-56 animate-pulse rounded-md bg-zinc-100 md:block" />
+          <div className="ml-auto hidden h-9 w-24 animate-pulse rounded-md bg-zinc-100 md:block" />
+        </div>
       </div>
     </header>
   );

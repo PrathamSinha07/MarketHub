@@ -1,5 +1,6 @@
 import { ApiError } from "@/lib/api-client";
 import type { Role } from "@/types/auth";
+import type { ProductStatus } from "@/types/product";
 
 /** Combines conditional class names. */
 export function cn(...parts: Array<string | false | null | undefined>): string {
@@ -32,6 +33,22 @@ export function getStockStatus(stockQuantity: number): StockStatus {
     return { label: `Only ${stockQuantity} left in stock`, tone: "low-stock" };
   }
   return { label: "In stock", tone: "in-stock" };
+}
+
+/** Maps backend product status constants to display labels. */
+export function formatProductStatus(status: ProductStatus): string {
+  switch (status) {
+    case "ACTIVE":
+      return "Active";
+    case "DRAFT":
+      return "Draft";
+    case "OUT_OF_STOCK":
+      return "Out of stock";
+    case "ARCHIVED":
+      return "Archived";
+    default:
+      return status;
+  }
 }
 
 /** Maps backend role constants to display labels. */
