@@ -6,7 +6,6 @@ import { errorMessage } from "@/lib/api-client";
 import { cn, isApiError, safeRedirectPath } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import type { FieldErrors } from "@/types/api";
-import { AuthCard } from "./AuthCard";
 import {
   FormField,
   inputClass,

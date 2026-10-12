@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { useCategories } from "@/hooks/useCategories";
 import { useProducts } from "@/hooks/useProducts";
 import { ProductGrid } from "@/components/products/ProductGrid";
@@ -9,15 +9,16 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { cn } from "@/lib/utils";
 
-/**
- * The backend product API only supports `categoryId`, `page` and
- * `size` — there is no server-side search or sort. Search therefore
- * runs client-side: a query triggers a fetch of the newest products
- * (up to `SEARCH_SIZE`) which are then filtered by name, description
- * and seller in the browser, with the coverage stated in the UI.
- */
-const SEARCH_SIZE = 100;
 const PAGE_SIZE = 12;
+
+const SORT_OPTIONS = [
+  { value: "newest", label: "Newest" },
+  { value: "oldest", label: "Oldest" },
+  { value: "price_asc", label: "Price: Low to High" },
+  { value: "price_desc", label: "Price: High to Low" },
+  { value: "name_asc", label: "Name: A to Z" },
+  { value: "name_desc", label: "Name: Z to A" },
+] as const;
 
 function Chip({
   label,
@@ -94,11 +95,10 @@ export function ProductsBrowser({
   );
   const [page, setPage] = useState(0);
   const [query, setQuery] = useState(initialQuery ?? "");
+  const [submittedQuery, setSubmittedQuery] = useState(initialQuery ?? "");
+  const [sortBy, setSortBy] = useState("newest");
 
   const { data: categories } = useCategories();
-  const trimmedQuery = query.trim();
-  const searching = trimmedQuery.length > 0;
-
   const {
     page: productPage,
     loading,
@@ -106,27 +106,15 @@ export function ProductsBrowser({
     reload,
   } = useProducts({
     categoryId,
-    page: searching ? 0 : page,
-    size: searching ? SEARCH_SIZE : PAGE_SIZE,
+    search: submittedQuery || undefined,
+    sortBy,
+    page,
+    size: PAGE_SIZE,
   });
 
   const selectedCategory = categories?.find(
     (category) => category.id === categoryId
   );
-
-  const matches = useMemo(() => {
-    const content = productPage?.content ?? [];
-    if (!searching) {
-      return content;
-    }
-    const needle = trimmedQuery.toLowerCase();
-    return content.filter(
-      (product) =>
-        product.name.toLowerCase().includes(needle) ||
-        product.description.toLowerCase().includes(needle) ||
-        (product.sellerName ?? "").toLowerCase().includes(needle)
-    );
-  }, [productPage, searching, trimmedQuery]);
 
   const selectCategory = (id?: number) => {
     setCategoryId(id);
@@ -135,15 +123,15 @@ export function ProductsBrowser({
 
   function handleSearchSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setPage(0);
+    setSubmittedQuery(query.trim());
   }
 
-  const clearSearch = () => setQuery("");
-
-  // True when the search window is smaller than the whole catalog.
-  const partialSearch =
-    searching &&
-    productPage !== undefined &&
-    productPage.totalElements > productPage.size;
+  const clearSearch = () => {
+    setQuery("");
+    setSubmittedQuery("");
+    setPage(0);
+  };
 
   return (
     <div className="space-y-6">
@@ -166,24 +154,45 @@ export function ProductsBrowser({
           </div>
         </section>
 
-        <form
-          role="search"
-          onSubmit={handleSearchSubmit}
-          className="w-full lg:w-72"
-        >
-          <label htmlFor="product-search" className="sr-only">
-            Search products
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <form
+            role="search"
+            onSubmit={handleSearchSubmit}
+            className="w-full lg:w-72"
+          >
+            <label htmlFor="product-search" className="sr-only">
+              Search products
+            </label>
+            <input
+              id="product-search"
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search products or sellers…"
+              autoComplete="off"
+              className="h-10 w-full rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-900 placeholder:text-zinc-400"
+            />
+          </form>
+
+          <label htmlFor="product-sort" className="sr-only">
+            Sort products
           </label>
-          <input
-            id="product-search"
-            type="search"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search products or sellers…"
-            autoComplete="off"
-            className="h-10 w-full rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-900 placeholder:text-zinc-400"
-          />
-        </form>
+          <select
+            id="product-sort"
+            value={sortBy}
+            onChange={(event) => {
+              setSortBy(event.target.value);
+              setPage(0);
+            }}
+            className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-900"
+          >
+            {SORT_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {loading && <ProductGridSkeleton count={8} />}
@@ -197,11 +206,11 @@ export function ProductsBrowser({
       )}
 
       {!loading && !error && productPage && (
-        matches.length === 0 ? (
-          searching ? (
+        productPage.content.length === 0 ? (
+          submittedQuery ? (
             <EmptyState
               title="No matches found"
-              message={`No products match “${trimmedQuery}”. Try a different search or browse the full catalog.`}
+              message={`No products match "${submittedQuery}". Try a different search or browse the full catalog.`}
             >
               <button
                 type="button"
@@ -226,29 +235,13 @@ export function ProductsBrowser({
         ) : (
           <>
             <p className="text-sm text-zinc-500">
-              {searching ? (
-                <>
-                  {matches.length}{" "}
-                  {matches.length === 1 ? "match" : "matches"} for “
-                  {trimmedQuery}”
-                  {selectedCategory ? ` in ${selectedCategory.name}` : ""}
-                  {partialSearch && (
-                    <span>
-                      {" "}
-                      — search covers the {productPage.size} newest products
-                    </span>
-                  )}
-                </>
-              ) : (
-                <>
-                  {productPage.totalElements}{" "}
-                  {productPage.totalElements === 1 ? "product" : "products"}
-                  {selectedCategory ? ` in ${selectedCategory.name}` : ""}
-                </>
-              )}
+              {productPage.totalElements}{" "}
+              {productPage.totalElements === 1 ? "product" : "products"}
+              {selectedCategory ? ` in ${selectedCategory.name}` : ""}
+              {submittedQuery ? ` matching "${submittedQuery}"` : ""}
             </p>
-            <ProductGrid products={matches} />
-            {!searching && productPage.totalPages > 1 && (
+            <ProductGrid products={productPage.content} />
+            {productPage.totalPages > 1 && (
               <Pagination
                 page={productPage.number}
                 totalPages={productPage.totalPages}

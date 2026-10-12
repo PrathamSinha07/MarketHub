@@ -159,8 +159,7 @@ function CartIcon({ className }: { className?: string }) {
 
 /**
  * Search box that navigates to `/products?q=…`, where the product
- * browser filters the catalog client-side (the backend has no search
- * parameter — see `components/products/ProductsBrowser.tsx`).
+ * browser passes the query to the backend's server-side search.
  */
 function SearchForm({
   id,

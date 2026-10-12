@@ -161,6 +161,7 @@ interface NavItemConfig {
 const NAV_ITEMS: NavItemConfig[] = [
   { href: "/seller", label: "Overview", icon: <OverviewIcon />, exact: true },
   { href: "/seller/products", label: "Products", icon: <ProductsIcon /> },
+  { href: "/seller/orders", label: "Orders", icon: <OrdersIcon /> },
 ];
 
 function isActive(pathname: string, item: NavItemConfig): boolean {
@@ -199,19 +200,6 @@ function NavList({
           </li>
         );
       })}
-      <li>
-        <span
-          aria-disabled="true"
-          className="flex cursor-not-allowed items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-zinc-400"
-          title="Seller orders are not available yet"
-        >
-          <OrdersIcon />
-          Orders
-          <span className="ml-auto rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
-            Soon
-          </span>
-        </span>
-      </li>
     </ul>
   );
 }

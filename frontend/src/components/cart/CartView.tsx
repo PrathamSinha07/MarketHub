@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
 import { cartService } from "@/services/cartService";
-import { orderService } from "@/services/orderService";
 import { errorMessage } from "@/lib/api-client";
 import { cn, formatPrice } from "@/lib/utils";
 import { card } from "@/lib/ui";
@@ -14,19 +14,10 @@ import { ProductMedia } from "@/components/products/ProductMedia";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ErrorState } from "@/components/shared/ErrorState";
 import type { CartItemResponse, CartResponse } from "@/types/cart";
-import type { OrderResponse, OrderStatus } from "@/types/order";
+// Note: OrderResponse and OrderStatus imports removed — checkout now lives in CheckoutView
 
 /** UI cap for the cart stepper; the server validates real stock. */
 const MAX_QUANTITY = 999;
-
-const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
-  PENDING: "Pending",
-  CONFIRMED: "Confirmed",
-  PROCESSING: "Processing",
-  SHIPPED: "Shipped",
-  DELIVERED: "Delivered",
-  CANCELLED: "Cancelled",
-};
 
 function CartSkeleton() {
   return (
@@ -119,17 +110,13 @@ function CartRow({
 }
 
 export function CartView() {
+  const router = useRouter();
   const { user } = useAuth();
   const { cart, loading, error, restricted, refresh, applyCart } = useCart();
   const [busyItemId, setBusyItemId] = useState<number | null>(null);
   const [rowErrors, setRowErrors] = useState<Record<number, string>>({});
-  const [checkoutState, setCheckoutState] = useState<
-    "idle" | "placing" | "placed"
-  >("idle");
-  const [order, setOrder] = useState<OrderResponse | null>(null);
-  const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
-  const busy = busyItemId !== null || checkoutState === "placing";
+  const busy = busyItemId !== null;
 
   async function updateQuantity(item: CartItemResponse, quantity: number) {
     if (busy || quantity === item.quantity) {
@@ -175,23 +162,8 @@ export function CartView() {
     }
   }
 
-  async function handleCheckout() {
-    // Guard against duplicate submissions while a request is in flight.
-    if (checkoutState !== "idle") {
-      return;
-    }
-    setCheckoutState("placing");
-    setCheckoutError(null);
-    try {
-      const placedOrder = await orderService.checkout();
-      setOrder(placedOrder);
-      setCheckoutState("placed");
-      // The server empties the cart as part of checkout.
-      refresh();
-    } catch (err) {
-      setCheckoutError(errorMessage(err));
-      setCheckoutState("idle");
-    }
+  function handleCheckout() {
+    router.push("/checkout");
   }
 
   return (
@@ -224,86 +196,6 @@ export function CartView() {
               className="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
             >
               Browse products
-            </Link>
-          </div>
-        </section>
-      ) : checkoutState === "placed" && order ? (
-        <section
-          aria-labelledby="order-confirmed-heading"
-          className={`${card} mt-6 p-6 sm:p-8`}
-        >
-          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={1.5}
-              stroke="currentColor"
-              className="h-5 w-5"
-              aria-hidden="true"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M4.5 12.75l6 6 9-13.5"
-              />
-            </svg>
-          </span>
-          <h2
-            id="order-confirmed-heading"
-            className="mt-4 text-lg font-semibold text-zinc-900"
-          >
-            Order placed
-          </h2>
-          <p className="mt-1.5 max-w-xl text-sm leading-6 text-zinc-600">
-            Your order has been created and sent to the sellers. This confirms
-            the order only — it does not mean payment has been completed.
-          </p>
-
-          <dl className="mt-5 grid grid-cols-1 gap-3 rounded-lg border border-zinc-200 bg-zinc-50 p-4 text-sm sm:grid-cols-3">
-            <div>
-              <dt className="text-zinc-500">Order number</dt>
-              <dd className="mt-0.5 font-medium text-zinc-900">
-                #{order.orderId}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-zinc-500">Status</dt>
-              <dd className="mt-0.5 font-medium text-zinc-900">
-                {ORDER_STATUS_LABELS[order.status] ?? order.status}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-zinc-500">Total</dt>
-              <dd className="mt-0.5 font-medium text-zinc-900">
-                {formatPrice(order.totalAmount)}
-              </dd>
-            </div>
-          </dl>
-
-          <ul className="mt-4 divide-y divide-zinc-200 border-t border-zinc-200 text-sm">
-            {order.items.map((item) => (
-              <li
-                key={item.orderItemId}
-                className="flex items-center justify-between gap-4 py-3"
-              >
-                <span className="min-w-0 truncate text-zinc-700">
-                  {item.productName}
-                  <span className="text-zinc-500"> × {item.quantity}</span>
-                </span>
-                <span className="shrink-0 font-medium text-zinc-900">
-                  {formatPrice(item.subtotal)}
-                </span>
-              </li>
-            ))}
-          </ul>
-
-          <div className="mt-6">
-            <Link
-              href="/products"
-              className="inline-flex items-center rounded-md bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-700"
-            >
-              Continue shopping
             </Link>
           </div>
         </section>
@@ -378,25 +270,17 @@ export function CartView() {
               </div>
             </dl>
 
-            {checkoutError && (
-              <p role="alert" className="mt-4 text-sm text-red-600">
-                {checkoutError}
-              </p>
-            )}
-
             <button
               type="button"
               onClick={handleCheckout}
               disabled={busy}
               className="mt-5 w-full rounded-md bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {checkoutState === "placing"
-                ? "Placing order…"
-                : "Proceed to checkout"}
+              Proceed to checkout
             </button>
 
             <p className="mt-3 text-xs leading-5 text-zinc-500">
-              Checkout places an order for the items in your cart.
+              Review your order on the checkout page before placing it.
             </p>
           </aside>
         </div>

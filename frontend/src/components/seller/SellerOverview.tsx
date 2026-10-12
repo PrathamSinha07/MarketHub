@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { useSellerOrderItems } from "@/hooks/useSellerOrderItems";
+import { useSellerProducts } from "@/hooks/useSellerProducts";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { cn, formatDate, formatPrice } from "@/lib/utils";
@@ -11,25 +12,13 @@ interface MetricCardProps {
   label: string;
   value: string;
   footnote: string;
-  /** False when the backend has no endpoint to source this number. */
-  available?: boolean;
 }
 
-function MetricCard({
-  label,
-  value,
-  footnote,
-  available = true,
-}: MetricCardProps) {
+function MetricCard({ label, value, footnote }: MetricCardProps) {
   return (
     <div className="rounded-lg border border-zinc-200 bg-white p-5">
       <p className="text-sm font-medium text-zinc-500">{label}</p>
-      <p
-        className={cn(
-          "mt-2 text-2xl font-semibold tracking-tight",
-          available ? "text-zinc-900" : "text-zinc-400"
-        )}
-      >
+      <p className="mt-2 text-2xl font-semibold tracking-tight text-zinc-900">
         {value}
       </p>
       <p className="mt-1.5 text-xs text-zinc-500">{footnote}</p>
@@ -72,13 +61,16 @@ function OrderStatusBadge({ status }: { status: string }) {
 /**
  * Seller dashboard overview.
  *
- * All order numbers are derived from `GET /orders/seller` (real data).
- * Product metrics intentionally show an explicit not-available state:
- * the backend exposes no seller-scoped product listing, and the public
- * `GET /products` cannot attribute products to this seller.
+ * Order numbers are derived from `GET /orders/seller`; product metrics
+ * come from `GET /products/seller` — both scoped to the authenticated
+ * seller via the JWT.
  */
 export function SellerOverview() {
   const { data, loading, error, reload } = useSellerOrderItems();
+  const { page: productPage, loading: productsLoading } = useSellerProducts({
+    page: 0,
+    size: 100,
+  });
 
   const stats = useMemo(() => {
     const items = data ?? [];
@@ -92,8 +84,25 @@ export function SellerOverview() {
           new Date(a.orderCreatedAt).getTime()
       )
       .slice(0, 5);
-    return { itemCount: items.length, orderCount: orderIds.size, units, revenue, recent };
-  }, [data]);
+
+    const products = productPage?.content ?? [];
+    const activeCount = products.filter((p) => p.status === "ACTIVE").length;
+    const outOfStockCount = products.filter(
+      (p) => p.status === "OUT_OF_STOCK"
+    ).length;
+
+    return {
+      itemCount: items.length,
+      orderCount: orderIds.size,
+      units,
+      revenue,
+      recent,
+      totalProducts: products.length,
+      activeCount,
+      outOfStockCount,
+      productsLoaded: !productsLoading,
+    };
+  }, [data, productPage, productsLoading]);
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -153,21 +162,18 @@ export function SellerOverview() {
             />
             <MetricCard
               label="Total products"
-              value="—"
-              footnote="Not available — no seller products endpoint"
-              available={false}
+              value={stats.productsLoaded ? String(stats.totalProducts) : "…"}
+              footnote="Products listed in your store"
             />
             <MetricCard
               label="Active products"
-              value="—"
-              footnote="Not available — no seller products endpoint"
-              available={false}
+              value={stats.productsLoaded ? String(stats.activeCount) : "…"}
+              footnote="Visible in the marketplace"
             />
             <MetricCard
               label="Out-of-stock products"
-              value="—"
-              footnote="Not available — no seller products endpoint"
-              available={false}
+              value={stats.productsLoaded ? String(stats.outOfStockCount) : "…"}
+              footnote="Unavailable for purchase"
             />
           </div>
 

@@ -3,6 +3,8 @@ import type { Product, ProductPage, ProductRequest } from "@/types/product";
 
 export interface GetProductsParams {
   categoryId?: number;
+  search?: string;
+  sortBy?: string;
   page?: number;
   size?: number;
 }
@@ -16,6 +18,12 @@ function toQuery(params: GetProductsParams): string {
   const searchParams = new URLSearchParams();
   if (params.categoryId !== undefined) {
     searchParams.set("categoryId", String(params.categoryId));
+  }
+  if (params.search) {
+    searchParams.set("search", params.search);
+  }
+  if (params.sortBy) {
+    searchParams.set("sortBy", params.sortBy);
   }
   if (params.page !== undefined) {
     searchParams.set("page", String(params.page));

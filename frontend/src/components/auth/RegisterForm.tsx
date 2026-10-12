@@ -7,7 +7,6 @@ import { cn, isApiError } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import type { Role } from "@/types/auth";
 import type { FieldErrors } from "@/types/api";
-import { AuthCard } from "./AuthCard";
 import {
   FormField,
   inputClass,
