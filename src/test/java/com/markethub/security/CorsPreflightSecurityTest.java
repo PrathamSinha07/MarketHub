@@ -136,7 +136,7 @@ class CorsPreflightSecurityTest {
 
     @Test
     void getProducts_unauthenticated_stillPublic() throws Exception {
-        when(productService.getActiveProducts(any(), any(Pageable.class)))
+        when(productService.getActiveProducts(any(), any(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of()));
 
         mockMvc.perform(get("/products"))
@@ -159,7 +159,7 @@ class CorsPreflightSecurityTest {
         when(jwtService.extractUsername("valid-token")).thenReturn("seller@example.com");
         when(customUserDetailsService.loadUserByUsername("seller@example.com")).thenReturn(principal);
         when(jwtService.isTokenValid(eq("valid-token"), any(UserDetails.class))).thenReturn(true);
-        when(productService.getActiveProducts(any(), any(Pageable.class)))
+        when(productService.getActiveProducts(any(), any(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of()));
 
         mockMvc.perform(get("/products")
@@ -173,7 +173,7 @@ class CorsPreflightSecurityTest {
         mockMvc.perform(post("/products")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(validProductJson()))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test

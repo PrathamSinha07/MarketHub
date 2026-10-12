@@ -86,11 +86,11 @@
             <scope>test</scope>
         </dependency>
 
-        <!-- H2 for repository-layer tests -->
+        <!-- H2 for repository-layer tests and the `local` profile (no PostgreSQL needed) -->
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
-            <scope>test</scope>
+            <scope>runtime</scope>
         </dependency>
     </dependencies>
 

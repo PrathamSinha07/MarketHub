@@ -1,0 +1,26 @@
+# ---------------------------------------------------------------------------
+# `local` profile: run the whole stack without a PostgreSQL server.
+#
+#   set JWT_SECRET=<random 32+ bytes>   (PowerShell: $env:JWT_SECRET=...)
+#   .\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"
+#
+# Data lives in ./data/markethub-local.mv.db and survives restarts.
+# Never activate this profile in production.
+# ---------------------------------------------------------------------------
+spring:
+  datasource:
+    url: jdbc:h2:file:./data/markethub-local;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH
+    username: sa
+    password: ""
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+  h2:
+    console:
+      enabled: true
+      path: /h2-console

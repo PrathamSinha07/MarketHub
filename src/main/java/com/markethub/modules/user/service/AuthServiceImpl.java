@@ -50,6 +50,14 @@ public class AuthServiceImpl implements AuthService {
         }
 
         Role role = request.getRole();
+
+        // Admin accounts must never be created through the public signup
+        // endpoint - otherwise anyone could grant themselves admin rights.
+        if (role != Role.ROLE_CUSTOMER && role != Role.ROLE_SELLER) {
+            throw new ApiException(HttpStatus.BAD_REQUEST,
+                    "Only customer and seller accounts can be registered");
+        }
+
         if (role == Role.ROLE_SELLER) {
             if (!StringUtils.hasText(request.getStoreName())) {
                 throw new ApiException(HttpStatus.BAD_REQUEST, "Store name is required for seller role");

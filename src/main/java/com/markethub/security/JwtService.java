@@ -4,6 +4,7 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
@@ -16,13 +17,34 @@ import java.util.Map;
 import java.util.function.Function;
 
 @Service
-public class JwtService {
+public class JwtService implements InitializingBean {
+
+    /** HS256 requires a key of at least 256 bits (32 bytes). */
+    private static final int MIN_SECRET_BYTES = 32;
 
     @Value("${application.security.jwt.secret-key}")
     private String secretKey;
 
     @Value("${application.security.jwt.expiration:${jwt.expiration:86400000}}")
     private long jwtExpiration;
+
+    /**
+     * Fails fast at startup instead of at the first login: a missing or
+     * too-short signing key otherwise surfaces as an opaque 500 on
+     * /auth/login and /auth/register.
+     */
+    @Override
+    public void afterPropertiesSet() {
+        if (secretKey == null || secretKey.isBlank()) {
+            throw new IllegalStateException(
+                    "application.security.jwt.secret-key (JWT_SECRET) must be set to a non-empty value");
+        }
+        byte[] keyBytes = decodeSecret(secretKey);
+        if (keyBytes.length < MIN_SECRET_BYTES) {
+            throw new IllegalStateException(
+                    "JWT secret must be at least 256 bits (32 bytes). Generate one with: openssl rand -base64 48");
+        }
+    }
 
     public String extractUsername(String token) {
         return extractClaim(token, Claims::getSubject);
@@ -82,12 +104,15 @@ public class JwtService {
     }
 
     private SecretKey getSigningKey() {
-        byte[] keyBytes;
+        return Keys.hmacShaKeyFor(decodeSecret(secretKey));
+    }
+
+    /** Base64-decoded secret, falling back to the raw UTF-8 bytes. */
+    private static byte[] decodeSecret(String secret) {
         try {
-            keyBytes = Decoders.BASE64.decode(secretKey);
+            return Decoders.BASE64.decode(secret);
         } catch (Exception e) {
-            keyBytes = secretKey.getBytes(StandardCharsets.UTF_8);
+            return secret.getBytes(StandardCharsets.UTF_8);
         }
-        return Keys.hmacShaKeyFor(keyBytes);
     }
 }

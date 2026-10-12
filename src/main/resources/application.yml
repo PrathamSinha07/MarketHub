@@ -1,5 +1,17 @@
+# ---------------------------------------------------------------------------
+# Base configuration.
+#
+# Every value that differs between environments is read from an environment
+# variable (with a safe local default where one is harmless). Nothing secret is
+# stored in this file - see README.md for the required variables.
+#
+# Profiles:
+#   (none)  -> PostgreSQL, for real deployments. Requires DB_* and JWT_SECRET.
+#   local   -> in-memory/file H2 database so the stack can run without a
+#              PostgreSQL server. See application-local.yml.
+# ---------------------------------------------------------------------------
 server:
-  port: 8080
+  port: ${SERVER_PORT:8080}
   servlet:
     context-path: /api/v1
 
@@ -7,27 +19,33 @@ spring:
   application:
     name: markethub-backend
   datasource:
-    url: jdbc:postgresql://localhost:5432/markethub_db
-    username: postgres
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/markethub_db}
+    username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
-      ddl-auto: update
-    show-sql: true
+      # `update` keeps an existing database in place; switch to `validate` in
+      # production once the schema is managed by a migration tool.
+      ddl-auto: ${JPA_DDL_AUTO:update}
+    # SQL logging is noisy and can leak row data into logs: opt in via SHOW_SQL=true.
+    show-sql: ${SHOW_SQL:false}
     properties:
       hibernate:
         format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
   sql:
     init:
+      # src/main/resources/schema.sql is a reference DDL only - Hibernate owns
+      # the actual schema. Never enable `always`: the file drops tables first.
       mode: never
       schema-locations: classpath:schema.sql
 
 application:
   security:
     jwt:
+      # Required, minimum 32 bytes. The application refuses to start without it.
       secret-key: ${JWT_SECRET}
-      expiration: 86400000 # 24 hours in milliseconds
+      expiration: ${JWT_EXPIRATION_MS:86400000} # 24 hours in milliseconds
       refresh-token:
-        expiration: 604800000 # 7 days in milliseconds
+        expiration: ${JWT_REFRESH_EXPIRATION_MS:604800000} # 7 days in milliseconds

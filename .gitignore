@@ -54,3 +54,6 @@ logs/
 
 # Spring Boot
 spring-shell.log
+
+# Local-profile H2 database (Spring "local" profile)
+data/
