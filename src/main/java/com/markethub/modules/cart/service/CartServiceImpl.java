@@ -42,10 +42,17 @@ public class CartServiceImpl implements CartService {
         this.userRepository = userRepository;
     }
 
+    /**
+     * Returns the customer's cart, creating an empty one on first access.
+     *
+     * A customer who has never added an item still gets a valid empty cart
+     * instead of a 404, so the cart page and navbar count can render their
+     * normal empty state.
+     */
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public CartResponse getCart(Long userId) {
-        Cart cart = getCartByUserId(userId);
+        Cart cart = getOrCreateCart(userId);
         return toResponse(cart);
     }
 

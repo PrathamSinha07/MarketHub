@@ -13,9 +13,13 @@ import com.markethub.modules.user.entity.SellerProfile;
 import com.markethub.modules.user.repository.SellerProfileRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import jakarta.persistence.criteria.JoinType;
+import java.util.Locale;
 
 @Service
 public class ProductServiceImpl implements ProductService {
@@ -57,18 +61,40 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional(readOnly = true)
-    public ProductResponse getProductById(Long productId) {
+    public ProductResponse getProductById(Long productId, Long requesterUserId) {
         Product product = getProduct(productId);
+
+        // DRAFT and ARCHIVED products are only visible to their owner;
+        // everyone else gets the same 404 as a missing id, so hidden
+        // listings cannot be probed for.
+        if (!isPubliclyVisible(product) && !isOwner(product, requesterUserId)) {
+            throw new ResourceNotFoundException("Product", "id", productId);
+        }
         return toResponse(product);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public Page<ProductResponse> getActiveProducts(Long categoryId, Pageable pageable) {
-        Page<Product> products = (categoryId != null)
-                ? productRepository.findByCategoryIdAndStatus(categoryId, ProductStatus.ACTIVE, pageable)
-                : productRepository.findByStatus(ProductStatus.ACTIVE, pageable);
-        return products.map(this::toResponse);
+    public Page<ProductResponse> getActiveProducts(Long categoryId, String search, Pageable pageable) {
+        Specification<Product> spec =
+                (root, query, cb) -> cb.equal(root.get("status"), ProductStatus.ACTIVE);
+
+        if (categoryId != null) {
+            spec = spec.and((root, query, cb) ->
+                    cb.equal(root.get("category").get("id"), categoryId));
+        }
+
+        String term = search == null ? "" : search.trim();
+        if (!term.isEmpty()) {
+            String pattern = "%" + term.toLowerCase(Locale.ROOT) + "%";
+            spec = spec.and((root, query, cb) -> cb.or(
+                    cb.like(cb.lower(root.get("name")), pattern),
+                    cb.like(cb.lower(root.get("description")), pattern),
+                    cb.like(cb.lower(root.get("slug")), pattern),
+                    cb.like(cb.lower(root.join("seller", JoinType.INNER).get("storeName")), pattern)));
+        }
+
+        return productRepository.findAll(spec, pageable).map(this::toResponse);
     }
 
     @Override
@@ -128,6 +154,20 @@ public class ProductServiceImpl implements ProductService {
         if (!product.getSeller().getId().equals(sellerProfile.getId())) {
             throw new ApiException(HttpStatus.FORBIDDEN, "You do not have permission to access this product");
         }
+    }
+
+    /** ACTIVE and OUT_OF_STOCK products are listed publicly; DRAFT/ARCHIVED are not. */
+    private boolean isPubliclyVisible(Product product) {
+        return product.getStatus() == ProductStatus.ACTIVE
+                || product.getStatus() == ProductStatus.OUT_OF_STOCK;
+    }
+
+    /** True when the requesting user owns the product (seller-side management). */
+    private boolean isOwner(Product product, Long requesterUserId) {
+        return requesterUserId != null
+                && product.getSeller() != null
+                && product.getSeller().getUser() != null
+                && requesterUserId.equals(product.getSeller().getUser().getId());
     }
 
     private ProductResponse toResponse(Product product) {

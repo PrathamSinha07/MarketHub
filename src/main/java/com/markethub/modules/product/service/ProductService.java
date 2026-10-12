@@ -9,9 +9,9 @@ public interface ProductService {
 
     ProductResponse createProduct(Long userId, ProductRequest request);
 
-    ProductResponse getProductById(Long productId);
+    ProductResponse getProductById(Long productId, Long requesterUserId);
 
-    Page<ProductResponse> getActiveProducts(Long categoryId, Pageable pageable);
+    Page<ProductResponse> getActiveProducts(Long categoryId, String search, Pageable pageable);
 
     Page<ProductResponse> getProductsForSeller(Long userId, Pageable pageable);
 

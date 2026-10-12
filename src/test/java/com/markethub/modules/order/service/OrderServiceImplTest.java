@@ -145,10 +145,11 @@ class OrderServiceImplTest {
     }
 
     @Test
-    void checkout_missingCart_notFound() {
+    void checkout_missingCart_treatedAsEmptyCart() {
         when(cartRepository.findByUserId(1L)).thenReturn(Optional.empty());
 
-        assertThrows(ResourceNotFoundException.class, () -> orderService.checkout(1L));
+        ApiException ex = assertThrows(ApiException.class, () -> orderService.checkout(1L));
+        assertEquals(400, ex.getStatus().value());
     }
 
     @Test

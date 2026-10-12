@@ -101,7 +101,7 @@ class OrderControllerTest {
     @Test
     void checkout_unauthenticated_rejected() throws Exception {
         mockMvc.perform(post("/orders/checkout"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -133,7 +133,7 @@ class OrderControllerTest {
     @Test
     void getOrders_unauthenticated_rejected() throws Exception {
         mockMvc.perform(get("/orders"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -193,6 +193,6 @@ class OrderControllerTest {
     @Test
     void getSellerOrderItems_unauthenticated_rejected() throws Exception {
         mockMvc.perform(get("/orders/seller"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 }

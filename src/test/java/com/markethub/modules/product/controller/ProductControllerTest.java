@@ -178,7 +178,7 @@ class ProductControllerTest {
         mockMvc.perform(put("/products/100")
                         .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
                         .content(validProductJson()))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
 
         verify(productService, never()).updateProduct(any(), any(), any());
     }
@@ -243,7 +243,7 @@ class ProductControllerTest {
     @Test
     void archiveProduct_unauthenticated_rejected() throws Exception {
         mockMvc.perform(delete("/products/100"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
 
         verify(productService, never()).archiveProduct(any(), any());
     }

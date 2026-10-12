@@ -108,7 +108,7 @@ class PaymentControllerTest {
         mockMvc.perform(post("/payments")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"orderId\":900,\"paymentMethod\":\"UPI\"}"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test

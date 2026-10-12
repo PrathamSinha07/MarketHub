@@ -56,8 +56,10 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public OrderResponse checkout(Long userId) {
+        // A customer who never opened the cart has no cart row yet: that is
+        // an empty cart (400), not a missing resource (404).
         Cart cart = cartRepository.findByUserId(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Cart", "userId", userId));
+                .orElseGet(() -> Cart.builder().user(null).items(new ArrayList<>()).build());
 
         if (cart.getItems() == null || cart.getItems().isEmpty()) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Cannot checkout with an empty cart");
