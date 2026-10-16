@@ -15,7 +15,11 @@ import {
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 interface LoginFormProps {
-  /** Where to send the user after a successful sign-in. */
+  /**
+   * Where to send the user after a successful sign-in. Read from the URL
+   * (`?next=…`) at submit time - same source RequireGuest uses - so the page
+   * never has to await `searchParams`.
+   */
   redirectTo?: string;
 }
 
@@ -53,7 +57,11 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
     setSubmitting(true);
     try {
       await signIn({ email: email.trim(), password });
-      router.replace(safeRedirectPath(redirectTo));
+      const next =
+        redirectTo ??
+        new URLSearchParams(window.location.search).get("next") ??
+        undefined;
+      router.replace(safeRedirectPath(next));
     } catch (error) {
       if (isApiError(error)) {
         setServerError(error.message);

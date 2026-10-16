@@ -42,6 +42,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             >
               Skip to main content
             </a>
+            {/* Required by Cache Components: `usePathname()` (URL data) must
+                live inside a Suspense boundary. The navbar also signals
+                AuthProvider once it has hydrated (see useAuth.completeRestore)
+                so the session restore never lands between the prerendered HTML
+                and this boundary's hydration - that race used to make React
+                log error #418 on every page load. */}
             <Suspense fallback={<NavbarSkeleton />}>
               <Navbar />
             </Suspense>

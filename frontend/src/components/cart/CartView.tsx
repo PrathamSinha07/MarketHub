@@ -78,7 +78,7 @@ function CartRow({
           </p>
         </div>
 
-        <div className="flex items-center justify-between gap-4 sm:justify-end">
+        <div className="flex flex-wrap items-center justify-between gap-4 sm:justify-end">
           <QuantitySelector
             quantity={item.quantity}
             max={MAX_QUANTITY}

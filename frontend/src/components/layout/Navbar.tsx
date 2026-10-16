@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
@@ -208,11 +208,20 @@ function SearchForm({
 
 export function Navbar() {
   const pathname = usePathname();
-  const { user, restoring, logout } = useAuth();
+  const { user, restoring, logout, completeRestore } = useAuth();
   const { count: cartCount, restricted: cartRestricted } = useCart();
   const { data: categories } = useCategories();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [categoriesOpen, setCategoriesOpen] = useState(false);
+
+  // This component hydrates inside the root layout's Suspense boundary.
+  // Signalling the auth provider from here means the session restore (which
+  // changes this very markup) only runs once the prerendered navbar HTML has
+  // been hydrated - otherwise React sees `restoring` flip before the boundary
+  // hydrates and logs a hydration error (#418) on every page.
+  useEffect(() => {
+    completeRestore();
+  }, [completeRestore]);
 
   const isProductsActive =
     pathname === "/products" || pathname.startsWith("/products/");

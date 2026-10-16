@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -33,6 +34,13 @@ interface AuthContextValue {
   user: AuthUser | null;
   /** True while the persisted session is being restored. */
   restoring: boolean;
+  /**
+   * Starts the one-time session restore. Called by the navbar once it has
+   * hydrated (it renders the `restoring` markup in the prerendered HTML, so
+   * restoring earlier would make React see server HTML vs client markup and
+   * log a hydration error on every page). Idempotent.
+   */
+  completeRestore: () => void;
   /** Signs in and persists the session. Throws on API errors. */
   signIn: (request: LoginRequest) => Promise<void>;
   /** Registers, persists the issued session and signs the user in. */
@@ -68,24 +76,33 @@ function buildSession(response: AuthResponse): AuthSession {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [restoring, setRestoring] = useState(true);
+  const restoreStarted = useRef(false);
 
-  // Restore the persisted session after mount. The state updates
-  // run inside the timer callback so the effect body only
-  // schedules the restoration work.
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const session = getAuthSession();
-      if (session) {
-        if (isSessionExpired(session)) {
-          clearAuthSession();
-        } else {
-          setUser(session.user);
-        }
+  const completeRestore = useCallback(() => {
+    if (restoreStarted.current) {
+      return;
+    }
+    restoreStarted.current = true;
+
+    const session = getAuthSession();
+    if (session) {
+      if (isSessionExpired(session)) {
+        clearAuthSession();
+      } else {
+        setUser(session.user);
       }
-      setRestoring(false);
-    });
-    return () => clearTimeout(timer);
+    }
+    setRestoring(false);
   }, []);
+
+  // Safety net: the navbar normally signals `completeRestore` as soon as it
+  // hydrates. If that ever stops happening (layout change, hydration
+  // failure), the timer still unlocks the session restore so the app can
+  // never stay stuck on a skeleton forever.
+  useEffect(() => {
+    const timer = setTimeout(completeRestore, 5000);
+    return () => clearTimeout(timer);
+  }, [completeRestore]);
 
   // Keep the in-memory user in sync when the API client rejects a
   // token (401) or when the session changes in another tab.
@@ -134,8 +151,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ user, restoring, signIn, register, logout }),
-    [user, restoring, signIn, register, logout]
+    () => ({ user, restoring, completeRestore, signIn, register, logout }),
+    [user, restoring, completeRestore, signIn, register, logout]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

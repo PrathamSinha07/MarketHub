@@ -290,8 +290,8 @@ export function CheckoutView() {
 
             <p className="mt-3 text-xs leading-5 text-zinc-500">
               Placing an order creates it with status{" "}
-              <span className="font-medium">PENDING</span>. Payment is
-              processed separately.
+              <span className="font-medium">CONFIRMED</span> and reserves your
+              stock. No payment is collected on this page.
             </p>
           </aside>
         </div>
