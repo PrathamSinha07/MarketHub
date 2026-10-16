@@ -23,17 +23,17 @@ export function useProducts(params: GetProductsParams): {
   error?: string;
   reload: () => void;
 } {
-  const { categoryId, page = 0, size = 12 } = params;
+  const { categoryId, search, sortBy, page = 0, size = 12 } = params;
   const [attempt, setAttempt] = useState(0);
   const [result, setResult] = useState<Result | null>(null);
 
-  const key = `${categoryId ?? "all"}:${page}:${size}:${attempt}`;
+  const key = `${categoryId ?? "all"}:${search ?? ""}:${sortBy ?? ""}:${page}:${size}:${attempt}`;
 
   useEffect(() => {
     let active = true;
 
     productService
-      .getProducts({ categoryId, page, size })
+      .getProducts({ categoryId, search, sortBy, page, size })
       .then((data) => {
         if (active) {
           setResult({ key, page: data });
@@ -48,7 +48,7 @@ export function useProducts(params: GetProductsParams): {
     return () => {
       active = false;
     };
-  }, [categoryId, page, size, attempt, key]);
+  }, [categoryId, search, sortBy, page, size, attempt, key]);
 
   return {
     page: result?.page,
