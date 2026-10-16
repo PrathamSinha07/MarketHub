@@ -3,6 +3,10 @@
 Working log so progress survives context limits. Updated after each cohesive stage.
 Nothing is committed to git without explicit owner approval.
 
+> **Note:** the "Remaining known limitations" section at the bottom of this log is
+> **stale** — see "Day 2" below. The backend now runs against real PostgreSQL 18,
+> and Playwright browser QA is in place. All Day 2 changes remain uncommitted.
+
 ## Environment facts (verified)
 
 - Repo: clean working tree on `main`, last commit `81c2188 feat: integrate buyer cart and checkout`.
@@ -80,6 +84,59 @@ All 6 frontend defects (F1–F6) fixed and verified:
 
 ## Remaining known limitations
 
-- **PostgreSQL not available** — backend cannot boot against local Postgres (SCRAM auth, no credentials). Full-stack integration testing blocked. Mitigated with H2 `local` profile.
-- **No browser automation** — no Playwright/Cypress tests. Manual verification recommended.
-- **Payment processing** — checkout creates orders with PENDING status. Payment gateway integration is architecturally prepared but not implemented (by design — no fake payment claims).
+- ~~**PostgreSQL not available**~~ — RESOLVED on Day 2 (see below): backend runs against real PostgreSQL 18.
+- ~~**No browser automation**~~ — RESOLVED on Day 2: Playwright suite (46 tests, desktop + mobile) in `frontend/tests/`.
+- **Payment processing** — checkout creates orders with CONFIRMED status. Payment gateway integration is architecturally prepared but not implemented (by design — no fake payment claims).
+
+## Day 2 — Full-stack integration + browser QA (COMPLETE)
+
+### Backend against real PostgreSQL
+- The default profile's `application.yml` reads `DB_URL`/`DB_USERNAME`/`DB_PASSWORD` and `JWT_SECRET`
+  from the environment; nothing is hard-coded and no value was printed to logs or committed.
+- Note: an earlier commit in this repo's history contains a plaintext `application.yml` with a database
+  password. That is a pre-existing secret-exposure issue worth rotating and scrubbing separately; it is
+  deliberately not referenced further here.
+- Backend boots on PostgreSQL 18 (`markethub_db`, :5432) — `Started MarketHubApplication`, Tomcat :8080,
+  context `/api/v1`. Launcher script: `C:\Users\PRATHAM\AppData\Local\Temp\opencode\start-backend.ps1`.
+- Stale bytecode (`ClassFormatError: Invalid method Code length 0 in CartItem`) fixed via `mvnw clean compile`.
+
+### New integration suite (PostgreSQL, full stack)
+- `src/test/java/com/markethub/integration/MarketHubIntegrationTest.java` — 9 tests: registration/login,
+  authz/role restrictions, public browsing/search/sort/filter, cart CRUD, checkout + order persistence +
+  stock decrement, customer order ownership, seller product management, seller order visibility.
+- Full backend suite: **162 tests, 0 failures** (`mvnw clean test`, exit 0).
+
+### Browser QA (Playwright, local Edge, no browser download)
+- Desktop 1280×720 + mobile 375×667; `webServer` reuses the running :3000 server.
+- 46 tests in `frontend/tests/{home,catalog,auth,shop-flow,seller}.spec.ts` + `helpers.ts`.
+- Result: **44 passed, 2 skipped (desktop-only tests on mobile), 0 failed** — verified on two consecutive runs.
+  Every test asserts no console errors, no page errors, no 5xx, no failed requests.
+
+### Defects found & fixed during QA
+| # | Severity | Defect | Status |
+|---|----------|--------|--------|
+| Q1 | High | `useProducts` dropped `search`/`sortBy` — catalog search never reached the API (full catalog returned for any query) | ✅ Fixed |
+| Q2 | Medium | Hydration error (React #418) on every route — `restoring` state raced the Suspense-deferred Navbar | ✅ Fixed (`completeRestore()` handshake; login page no longer awaits `searchParams`) |
+| Q3 | Medium | Cart row overflows horizontally by 18px at 375px (stepper + subtotal + Remove can't fit) | ✅ Fixed (`flex-wrap` on the cart row) |
+| Q4 | Low | Checkout confirmation showed raw `PENDING` status text for a `CONFIRMED` order | ✅ Fixed |
+
+### Known non-defects worth remembering
+- Next 16 (Cache Components) requires the `Suspense` wrapper around `usePathname()` in `layout.tsx`;
+  removing it breaks the build (`CLIENT_HOOK_DYNAMIC`).
+- During client-side navigation Next.js briefly keeps a hidden streamed copy of the page (`div#S:0`);
+  Playwright tests therefore scope catalog selectors to `#main-content`.
+- Next.js prefetch `_rsc` requests are aborted (`net::ERR_ABORTED`) when navigation commits — expected,
+  filtered out in `tests/helpers.ts`.
+
+### How to run
+```powershell
+# backend (real PostgreSQL)
+C:\Users\PRATHAM\AppData\Local\Temp\opencode\start-backend.ps1
+# frontend
+cd frontend; npm run build; npm run start
+# QA
+cd frontend; npx playwright test
+```
+
+**Next unfinished task:** none scheduled — all Day 2 work is complete and verified.
+All changes remain **uncommitted** pending owner review/approval.
