@@ -69,6 +69,35 @@ test.describe("home & navigation", () => {
     expectClean(m);
   });
 
+  test("hero search forwards the query to the catalog", async ({ page }) => {
+    const m = monitor(page);
+    await page.goto("/");
+    const term = `zzznothingmatchesthis${uid()}`;
+    await page.locator("#hero-search").fill(term);
+    await page.locator("#hero-search").press("Enter");
+
+    await expect(page).toHaveURL(`/products?q=${encodeURIComponent(term)}`);
+    await expect(page.locator("#main-content #product-search")).toHaveValue(term);
+    await expect(
+      page.getByRole("heading", { name: "No matches found" })
+    ).toBeVisible();
+    expectClean(m);
+  });
+
+  test("hero search with an empty query opens the full catalog", async ({
+    page,
+  }) => {
+    const m = monitor(page);
+    await page.goto("/");
+    await page.getByRole("button", { name: "Search", exact: true }).click();
+
+    await expect(page).toHaveURL(/\/products$/);
+    await expect(
+      page.getByRole("heading", { level: 1, name: "All products" })
+    ).toBeVisible();
+    expectClean(m);
+  });
+
   test("categories menu opens and filters the catalog", async ({ page }) => {
     test.skip(!isDesktop(page), "categories menu lives in the mobile menu");
 

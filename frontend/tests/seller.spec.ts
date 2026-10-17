@@ -117,4 +117,57 @@ test.describe("seller dashboard", () => {
 
     expectClean(m);
   });
+
+  test("seller edits and archives their own product", async ({ page, request }) => {
+    const seller = await apiRegister(request, "ROLE_SELLER", "editarch");
+    const name = `QA Edit ${uid()}`;
+    const m = monitor(page);
+    await uiLogin(page, seller.email, seller.password);
+
+    // Create the fixture through the UI (same flow already covered above).
+    await page.goto("/seller/products/new");
+    await page.locator("#product-name").fill(name);
+    await page.locator("#product-slug").fill(`qa-${uid()}`);
+    await page.locator("#product-price").fill("19.99");
+    await page.locator("#product-stock").fill("25");
+    const category = page.locator("#product-category");
+    const firstOption = category.locator("option").nth(1);
+    await expect(firstOption).toBeAttached();
+    await category.selectOption((await firstOption.getAttribute("value"))!);
+    await page.getByRole("button", { name: "Create product", exact: true }).click();
+    await expect(page).toHaveURL(/\/seller\/products$/, { timeout: 15000 });
+
+    // Edit: change the price and save.
+    const row = page.locator("#main-content tr", { hasText: name }).first();
+    await row.getByRole("link", { name: "Edit" }).click();
+    await expect(page).toHaveURL(/\/seller\/products\/\d+\/edit$/);
+    await page.locator("#product-price").fill("42.50");
+    await page.getByRole("button", { name: "Save changes" }).click();
+    await expect(page.getByRole("heading", { name: "Changes saved" })).toBeVisible();
+
+    // The new price is live in the public catalog.
+    const anon = await request.get(
+      `${API_BASE}/products?search=${encodeURIComponent(name)}`
+    );
+    expect(anon.status()).toBe(200);
+    const payload = await anon.json();
+    expect(payload.data.content[0].price).toBe(42.5);
+
+    // Archive: explicit two-step confirmation, then the status shows.
+    await page.goto("/seller/products");
+    const listRow = page.locator("#main-content tr", { hasText: name }).first();
+    await listRow.getByRole("button", { name: "Archive" }).click();
+    await listRow.getByRole("button", { name: "Confirm" }).click();
+    await expect(listRow.getByText("Archived")).toBeVisible();
+
+    // An archived product is hidden from the marketplace (real API check).
+    const after = await request.get(
+      `${API_BASE}/products?search=${encodeURIComponent(name)}`
+    );
+    expect(after.status()).toBe(200);
+    const afterPayload = await after.json();
+    expect(afterPayload.data.content).toEqual([]);
+
+    expectClean(m);
+  });
 });

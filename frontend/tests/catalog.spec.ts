@@ -122,4 +122,49 @@ test.describe("catalog", () => {
     expect(m.apiFailures).toEqual([]);
     expectClean(m);
   });
+
+  test("a category deep link selects the matching chip", async ({ page }) => {
+    const m = monitor(page);
+    const [response] = await Promise.all([
+      page.waitForResponse(
+        (res) =>
+          res.url().includes("/api/v1/products") &&
+          res.url().includes("categoryId=2") &&
+          res.status() === 200
+      ),
+      page.goto("/products?categoryId=2"),
+    ]);
+    expect(response.status()).toBe(200);
+
+    // The chip state reflects the URL, not just clicks.
+    const chip = page.getByRole("button", { name: "Electronics" });
+    await expect(chip).toHaveAttribute("aria-pressed", "true");
+    const allChip = page.getByRole("button", { name: "All products" });
+    await expect(allChip).toHaveAttribute("aria-pressed", "false");
+
+    const payload = await response.json();
+    expect(payload.data.content.length).toBeGreaterThan(0);
+    for (const item of payload.data.content) {
+      expect(item.categoryId).toBe(2);
+    }
+    expectClean(m);
+  });
+
+  test("a search deep link pre-fills the catalog and navbar search", async ({
+    page,
+  }) => {
+    test.skip(
+      (page.viewportSize()?.width ?? 1280) < 1024,
+      "navbar search only renders at lg"
+    );
+    const m = monitor(page);
+    const term = `zzznothingmatchesthis${uid()}`;
+    await page.goto(`/products?q=${encodeURIComponent(term)}`);
+
+    // The submitted query survives the server round-trip into both inputs.
+    await expect(page.locator("#main-content #product-search")).toHaveValue(term);
+    await expect(page.locator("#nav-search")).toHaveValue(term);
+    await expect(page.getByRole("heading", { name: "No matches found" })).toBeVisible();
+    expectClean(m);
+  });
 });
