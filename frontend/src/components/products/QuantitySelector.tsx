@@ -47,7 +47,7 @@ export function QuantitySelector({
           }
         }}
         aria-label="Quantity"
-        className="h-9 w-14 border-x border-zinc-300 text-center text-sm font-medium text-zinc-900 disabled:bg-zinc-50 disabled:text-zinc-400"
+        className="h-9 w-14 border-x border-zinc-300 text-center text-sm font-medium text-zinc-900 [appearance:textfield] disabled:bg-zinc-50 disabled:text-zinc-400 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
       />
       <button
         type="button"

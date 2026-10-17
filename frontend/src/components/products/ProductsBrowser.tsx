@@ -195,7 +195,7 @@ export function ProductsBrowser({
         </div>
       </div>
 
-      {loading && <ProductGridSkeleton count={8} />}
+      {loading && <ProductGridSkeleton count={PAGE_SIZE} />}
 
       {error && !loading && (
         <ErrorState

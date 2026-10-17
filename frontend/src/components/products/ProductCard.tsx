@@ -4,6 +4,13 @@ import { formatPrice } from "@/lib/utils";
 import { StockBadge } from "./StockBadge";
 import { ProductMedia } from "./ProductMedia";
 
+/**
+ * Catalog product card.
+ *
+ * The title reserves two lines and the seller line reserves one, so
+ * prices and the details button stay aligned across a grid row even
+ * when product names differ in length.
+ */
 export function ProductCard({ product }: { product: Product }) {
   const detailsHref = `/products/${product.id}`;
 
@@ -16,7 +23,7 @@ export function ProductCard({ product }: { product: Product }) {
 
       <div className="flex flex-1 flex-col p-4">
         <div className="flex items-start justify-between gap-3">
-          <h3 className="text-sm font-medium leading-snug text-zinc-900">
+          <h3 className="min-h-10 min-w-0 text-sm font-medium leading-snug text-zinc-900">
             <Link
               href={detailsHref}
               className="line-clamp-2 hover:text-indigo-600"
@@ -27,14 +34,16 @@ export function ProductCard({ product }: { product: Product }) {
           <StockBadge quantity={product.stockQuantity} />
         </div>
 
-        {product.sellerName && (
-          <p className="mt-1.5 truncate text-xs text-zinc-500">
-            Sold by{" "}
-            <span className="font-medium text-zinc-600">
-              {product.sellerName}
-            </span>
-          </p>
-        )}
+        <p className="mt-1.5 min-h-4 truncate text-xs text-zinc-500">
+          {product.sellerName && (
+            <>
+              Sold by{" "}
+              <span className="font-medium text-zinc-600">
+                {product.sellerName}
+              </span>
+            </>
+          )}
+        </p>
 
         <p className="mt-3 text-base font-semibold text-zinc-900">
           {formatPrice(product.price)}

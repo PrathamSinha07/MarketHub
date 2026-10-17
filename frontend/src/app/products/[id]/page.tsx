@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import Link from "next/link";
 import type { Metadata } from "next";
 import { ProductDetailsView } from "@/components/products/ProductDetailsView";
 import { ProductDetailsSkeleton } from "@/components/products/ProductDetailsSkeleton";
@@ -27,29 +26,7 @@ async function ProductDetailsContent(props: PageProps<"/products/[id]">) {
   const productId =
     Number.isFinite(parsedId) && parsedId > 0 ? parsedId : null;
 
-  return (
-    <>
-      <nav aria-label="Breadcrumb" className="mb-6">
-        <ol className="flex items-center gap-2 text-sm text-zinc-500">
-          <li>
-            <Link href="/" className="hover:text-zinc-900">
-              Home
-            </Link>
-          </li>
-          <li aria-hidden="true">/</li>
-          <li>
-            <Link href="/products" className="hover:text-zinc-900">
-              Products
-            </Link>
-          </li>
-          <li aria-hidden="true">/</li>
-          <li className="font-medium text-zinc-900" aria-current="page">
-            Product details
-          </li>
-        </ol>
-      </nav>
-
-      <ProductDetailsView key={productId ?? "invalid"} productId={productId} />
-    </>
-  );
+  // The breadcrumb lives in the view so the final crumb can show the
+  // real product name once it has loaded.
+  return <ProductDetailsView key={productId ?? "invalid"} productId={productId} />;
 }
