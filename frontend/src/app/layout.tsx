@@ -51,7 +51,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             <Suspense fallback={<NavbarSkeleton />}>
               <Navbar />
             </Suspense>
-            <main id="main-content" className="flex-1">
+            {/* Soft page surface so white cards/forms read as raised
+                surfaces; navbar and footer remain white anchors. */}
+            <main id="main-content" className="flex-1 bg-zinc-50">
               {children}
             </main>
             <Footer />

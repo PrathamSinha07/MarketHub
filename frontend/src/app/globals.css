@@ -7,9 +7,22 @@
     Menlo, monospace;
 }
 
+/*
+ * Page surface: content areas sit on a soft zinc background so white
+ * cards (products, forms, summaries) read as raised surfaces. The
+ * navbar, footer and auth cards stay white to anchor the layout.
+ */
 body {
   background-color: #ffffff;
   color: #27272a;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Headings wrap evenly instead of leaving orphan words. */
+h1,
+h2,
+h3 {
+  text-wrap: balance;
 }
 
 ::selection {
