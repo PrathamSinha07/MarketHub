@@ -14,9 +14,9 @@ export function SellCta() {
               Sell on MarketHub
             </h2>
             <p className="mt-2 text-sm leading-6 text-indigo-100">
-              Join the marketplace and reach buyers across the country. Set up
-              your store, list products, and manage orders from a single seller
-              dashboard.
+              Open a store, list your products, and manage stock and orders
+              from a single seller dashboard — right alongside the rest of
+              the marketplace.
             </p>
           </div>
           <Link

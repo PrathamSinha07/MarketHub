@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
 import { useCategories } from "@/hooks/useCategories";
@@ -171,7 +171,18 @@ function SearchForm({
   onSubmitted?: () => void;
 }) {
   const router = useRouter();
-  const [value, setValue] = useState("");
+  const searchParams = useSearchParams();
+  const urlQuery = searchParams.get("q") ?? "";
+  const [value, setValue] = useState(urlQuery);
+  // Adjust state during render when the URL query changes (React's
+  // "adjusting state when props change" pattern): a shared or reloaded
+  // search URL shows the query it is actually rendering, without an
+  // effect-driven update.
+  const [syncedQuery, setSyncedQuery] = useState(urlQuery);
+  if (urlQuery !== syncedQuery) {
+    setSyncedQuery(urlQuery);
+    setValue(urlQuery);
+  }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

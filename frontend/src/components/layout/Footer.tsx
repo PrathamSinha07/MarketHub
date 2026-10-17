@@ -63,7 +63,7 @@ export function Footer() {
         <div className="mt-10 flex flex-col gap-2 border-t border-zinc-200 pt-6 sm:flex-row sm:items-center sm:justify-between">
           <FooterCopyright />
           <p className="text-xs text-zinc-400">
-            Next.js frontend · Spring Boot backend
+            Browse, compare, and order — from independent sellers.
           </p>
         </div>
       </div>
