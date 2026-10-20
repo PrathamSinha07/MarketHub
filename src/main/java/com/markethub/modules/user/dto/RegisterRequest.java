@@ -12,7 +12,9 @@ public class RegisterRequest {
     private String email;
 
     @NotBlank(message = "Password is required")
-    @Size(min = 6, message = "Password must be at least 6 characters")
+    // 8 characters minimum (NIST SP 800-63B baseline) and 72 maximum, because
+    // BCrypt silently truncates anything longer than 72 bytes.
+    @Size(min = 8, max = 72, message = "Password must be between 8 and 72 characters")
     private String password;
 
     @NotBlank(message = "First name is required")

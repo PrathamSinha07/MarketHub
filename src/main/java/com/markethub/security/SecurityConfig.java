@@ -51,7 +51,10 @@ public class SecurityConfig {
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                .requestMatchers("/auth/**", "/api/v1/auth/**", "/error", "/v3/api-docs/**", "/swagger-ui/**").permitAll()
+                // Deployment health checks must work without a token; only
+                // health and info are exposed (see application.yml).
+                .requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info").permitAll()
+                .requestMatchers("/auth/**", "/api/v1/auth/**", "/error").permitAll()
                 .requestMatchers(HttpMethod.POST, "/payments/webhook", "/api/v1/payments/webhook").permitAll()
                 .requestMatchers("/payments/**", "/api/v1/payments/**").hasAuthority("ROLE_CUSTOMER")
                 .requestMatchers(HttpMethod.GET, "/api/v1/products", "/products", "/api/v1/products/*", "/products/*").permitAll()

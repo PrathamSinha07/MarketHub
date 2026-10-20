@@ -23,6 +23,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
@@ -51,9 +52,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  */
 @WebMvcTest(controllers = {ProductController.class, CategoryController.class}, excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration.class)
 @Import({SecurityConfig.class, JwtAuthenticationFilter.class})
+// The allowlist this test exercises is pinned explicitly so the assertions hold
+// identically whatever profile or CORS_ALLOWED_ORIGINS the caller environment
+// happens to define.
+@TestPropertySource(properties = "cors.allowed-origins=" + CorsPreflightSecurityTest.FRONTEND_ORIGIN)
 class CorsPreflightSecurityTest {
 
-    private static final String FRONTEND_ORIGIN = "http://localhost:3000";
+    static final String FRONTEND_ORIGIN = "http://localhost:3000";
 
     @Autowired
     private MockMvc mockMvc;

@@ -22,7 +22,16 @@ import java.math.BigDecimal;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-@DataJpaTest(properties = "spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.H2Dialect")
+// The slice runs against an embedded H2 database with a Hibernate-generated
+// schema, so the PostgreSQL Flyway migrations are switched off for it and the
+// schema is created for the test explicitly (this must hold whatever profile
+// is active - including `prod`, where the application default is `validate`).
+// The migration path itself is covered by MarketHubIntegrationTest (PostgreSQL).
+@DataJpaTest(properties = {
+        "spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.H2Dialect",
+        "spring.jpa.hibernate.ddl-auto=create-drop",
+        "spring.flyway.enabled=false"
+})
 @Import(JpaAuditingConfig.class)
 class PaymentPersistenceTest {
 
