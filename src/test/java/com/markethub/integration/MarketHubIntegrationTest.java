@@ -27,9 +27,16 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -310,6 +317,74 @@ class MarketHubIntegrationTest {
         assertEquals(400, emptyCheckout.getStatusCode().value(), emptyCheckout.getBody());
     }
 
+    /**
+     * Two "Place order" submissions racing each other (double click, retried
+     * request, two tabs) must produce exactly one order: the cart row is locked
+     * for the duration of checkout, so the loser is rejected with a 400 after
+     * the cart has been emptied - not a duplicate order with double-decremented
+     * stock.
+     */
+    @Test
+    void concurrentDuplicateCheckoutSubmitsCreateExactlyOneOrder() throws Exception {
+        String customer = registerCustomer("dup-cust");
+        Seller seller = registerSeller("dup-store");
+        Long category = ensureCategory();
+
+        JsonNode product = createProduct(seller.token, "IT Dup Product " + sfx, category,
+                new BigDecimal("20.00"), 5);
+        long productId = product.get("id").asLong();
+        post(API + "/cart/items", Map.of("productId", productId, "quantity", 2), customer);
+
+        List<ResponseEntity<String>> results = runConcurrently(List.of(
+                () -> post(API + "/orders/checkout", null, customer),
+                () -> post(API + "/orders/checkout", null, customer)));
+
+        long created = results.stream().filter(r -> r.getStatusCode().value() == 201).count();
+        long rejected = results.stream().filter(r -> r.getStatusCode().value() == 400).count();
+        assertEquals(1, created, "Expected exactly one order, got: " + statusList(results));
+        assertEquals(1, rejected, "Duplicate submission must be rejected: " + statusList(results));
+
+        // One order in history, stock decremented exactly once, cart empty.
+        assertEquals(1, data(get(API + "/orders", customer)).size());
+        assertEquals(3, data(get(API + "/products/" + productId, null)).get("stockQuantity").asInt());
+        assertTrue(data(get(API + "/cart", customer)).get("items").isEmpty());
+    }
+
+    /**
+     * Two different customers racing for the last remaining unit: exactly one
+     * checkout may win, stock must end at 0 and must never go negative.
+     */
+    @Test
+    void concurrentCheckoutsCannotOversellTheLastUnit() throws Exception {
+        String customerA = registerCustomer("race-a");
+        String customerB = registerCustomer("race-b");
+        Seller seller = registerSeller("race-store");
+        Long category = ensureCategory();
+
+        JsonNode product = createProduct(seller.token, "IT Race Product " + sfx, category,
+                new BigDecimal("7.50"), 1);
+        long productId = product.get("id").asLong();
+
+        post(API + "/cart/items", Map.of("productId", productId, "quantity", 1), customerA);
+        post(API + "/cart/items", Map.of("productId", productId, "quantity", 1), customerB);
+
+        List<ResponseEntity<String>> results = runConcurrently(List.of(
+                () -> post(API + "/orders/checkout", null, customerA),
+                () -> post(API + "/orders/checkout", null, customerB)));
+
+        long created = results.stream().filter(r -> r.getStatusCode().value() == 201).count();
+        long rejected = results.stream().filter(r -> r.getStatusCode().value() == 400).count();
+        assertEquals(1, created, "Only one buyer can take the last unit: " + statusList(results));
+        assertEquals(1, rejected, "The loser must be rejected with insufficient stock: " + statusList(results));
+
+        int stock = data(get(API + "/products/" + productId, null)).get("stockQuantity").asInt();
+        assertEquals(0, stock, "Stock must end at zero and must never go negative");
+
+        long orders = data(get(API + "/orders", customerA)).size()
+                + data(get(API + "/orders", customerB)).size();
+        assertEquals(1, orders, "Exactly one order may exist for the last unit");
+    }
+
     // ---------------------------------------------------------- order access
 
     @Test
@@ -425,7 +500,71 @@ class MarketHubIntegrationTest {
         assertEquals(403, get(API + "/orders/" + orderId, sellerA.token).getStatusCode().value());
     }
 
+    // ------------------------------------------------------------ ops / health
+
+    /**
+     * Deployment smoke test: the health probe must answer without a token and
+     * must not disclose anything beyond the aggregate status, while the
+     * diagnostic actuators stay out of public reach.
+     */
+    @Test
+    void healthEndpointIsPublicWithoutLeakingConfiguration() {
+        ResponseEntity<String> health = get(API + "/actuator/health", null);
+        assertEquals(200, health.getStatusCode().value(), health.getBody());
+        assertTrue(health.getBody() != null && health.getBody().contains("\"status\":\"UP\""),
+                "Expected an aggregate UP status, got: " + health.getBody());
+
+        // Not exposed (not in management.endpoints.web.exposure.include) and,
+        // being unlisted, not anonymous either: no config dump for the world.
+        assertNotEquals(200, get(API + "/actuator/env", null).getStatusCode().value());
+        assertNotEquals(200, get(API + "/actuator/configprops", null).getStatusCode().value());
+        assertNotEquals(200, get(API + "/actuator/beans", null).getStatusCode().value());
+    }
+
     // -------------------------------------------------------------- helpers
+
+    /**
+     * Runs the given tasks on separate threads, released together by a latch so
+     * their HTTP requests actually overlap, and returns their responses in the
+     * same order as the input.
+     */
+    private <T> List<T> runConcurrently(List<Callable<T>> tasks) throws Exception {
+        ExecutorService pool = Executors.newFixedThreadPool(tasks.size());
+        try {
+            CountDownLatch ready = new CountDownLatch(tasks.size());
+            CountDownLatch start = new CountDownLatch(1);
+            List<Future<T>> futures = new ArrayList<>();
+            for (Callable<T> task : tasks) {
+                futures.add(pool.submit(() -> {
+                    ready.countDown();
+                    start.await();
+                    return task.call();
+                }));
+            }
+            assertTrue(ready.await(10, TimeUnit.SECONDS), "Workers did not become ready in time");
+            start.countDown();
+
+            List<T> results = new ArrayList<>();
+            for (Future<T> future : futures) {
+                results.add(future.get(30, TimeUnit.SECONDS));
+            }
+            return results;
+        } finally {
+            pool.shutdownNow();
+        }
+    }
+
+    /** "201,400" - keeps failing status combinations readable in assertion messages. */
+    private static String statusList(List<ResponseEntity<String>> responses) {
+        StringBuilder sb = new StringBuilder("[");
+        for (ResponseEntity<String> r : responses) {
+            if (sb.length() > 1) {
+                sb.append(',');
+            }
+            sb.append(r.getStatusCode().value());
+        }
+        return sb.append(']').toString();
+    }
 
     private record Seller(String token, long userId) {
     }

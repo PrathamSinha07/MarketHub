@@ -25,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 @Service
@@ -56,9 +57,12 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public OrderResponse checkout(Long userId) {
-        // A customer who never opened the cart has no cart row yet: that is
-        // an empty cart (400), not a missing resource (404).
-        Cart cart = cartRepository.findByUserId(userId)
+        // Lock the customer's cart row first: concurrent "Place order"
+        // submissions from the same account are serialised, so the second one
+        // waits and then sees the emptied cart (400) instead of creating a
+        // duplicate order. A customer who never opened the cart has no cart row
+        // yet: that is an empty cart (400), not a missing resource (404).
+        Cart cart = cartRepository.findByUserIdForUpdate(userId)
                 .orElseGet(() -> Cart.builder().user(null).items(new ArrayList<>()).build());
 
         if (cart.getItems() == null || cart.getItems().isEmpty()) {
@@ -74,8 +78,17 @@ public class OrderServiceImpl implements OrderService {
 
         BigDecimal total = BigDecimal.ZERO;
 
-        for (CartItem cartItem : cart.getItems()) {
-            Product product = productRepository.findById(cartItem.getProduct().getId())
+        // Product rows are locked in ascending id order (a stable global order)
+        // so overlapping checkouts from different customers cannot deadlock.
+        List<CartItem> orderedItems = cart.getItems().stream()
+                .sorted(Comparator.comparing(item -> item.getProduct().getId()))
+                .toList();
+
+        for (CartItem cartItem : orderedItems) {
+            // SELECT ... FOR UPDATE: the stock level is re-read after the lock
+            // is granted, so two concurrent checkouts can never both pass the
+            // stock check for the last remaining unit.
+            Product product = productRepository.findByIdForUpdate(cartItem.getProduct().getId())
                     .orElseThrow(() -> new ResourceNotFoundException("Product", "id", cartItem.getProduct().getId()));
 
             if (product.getStatus() != ProductStatus.ACTIVE) {

@@ -126,8 +126,8 @@ class OrderServiceImplTest {
     void checkout_validCart_createsConfirmedOrder() {
         Product p = product(100L, "Wireless Mouse", new BigDecimal("19.99"), 10, sellerA);
         addCartItem(p, 2);
-        when(cartRepository.findByUserId(1L)).thenReturn(Optional.of(cart));
-        when(productRepository.findById(100L)).thenReturn(Optional.of(p));
+        when(cartRepository.findByUserIdForUpdate(1L)).thenReturn(Optional.of(cart));
+        when(productRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(p));
 
         OrderResponse response = orderService.checkout(1L);
 
@@ -138,7 +138,7 @@ class OrderServiceImplTest {
 
     @Test
     void checkout_emptyCart_rejected() {
-        when(cartRepository.findByUserId(1L)).thenReturn(Optional.of(cart));
+        when(cartRepository.findByUserIdForUpdate(1L)).thenReturn(Optional.of(cart));
 
         ApiException ex = assertThrows(ApiException.class, () -> orderService.checkout(1L));
         assertEquals(400, ex.getStatus().value());
@@ -146,7 +146,7 @@ class OrderServiceImplTest {
 
     @Test
     void checkout_missingCart_treatedAsEmptyCart() {
-        when(cartRepository.findByUserId(1L)).thenReturn(Optional.empty());
+        when(cartRepository.findByUserIdForUpdate(1L)).thenReturn(Optional.empty());
 
         ApiException ex = assertThrows(ApiException.class, () -> orderService.checkout(1L));
         assertEquals(400, ex.getStatus().value());
@@ -157,8 +157,8 @@ class OrderServiceImplTest {
         Product p = product(100L, "Mouse", new BigDecimal("19.99"), 10, sellerA);
         p.setStatus(ProductStatus.ARCHIVED);
         addCartItem(p, 1);
-        when(cartRepository.findByUserId(1L)).thenReturn(Optional.of(cart));
-        when(productRepository.findById(100L)).thenReturn(Optional.of(p));
+        when(cartRepository.findByUserIdForUpdate(1L)).thenReturn(Optional.of(cart));
+        when(productRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(p));
 
         ApiException ex = assertThrows(ApiException.class, () -> orderService.checkout(1L));
         assertEquals(400, ex.getStatus().value());
@@ -168,8 +168,8 @@ class OrderServiceImplTest {
     void checkout_insufficientStock_rejected() {
         Product p = product(100L, "Mouse", new BigDecimal("19.99"), 1, sellerA);
         addCartItem(p, 5);
-        when(cartRepository.findByUserId(1L)).thenReturn(Optional.of(cart));
-        when(productRepository.findById(100L)).thenReturn(Optional.of(p));
+        when(cartRepository.findByUserIdForUpdate(1L)).thenReturn(Optional.of(cart));
+        when(productRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(p));
 
         ApiException ex = assertThrows(ApiException.class, () -> orderService.checkout(1L));
         assertEquals(400, ex.getStatus().value());
@@ -180,8 +180,8 @@ class OrderServiceImplTest {
     void checkout_usesCurrentProductPriceNotCartSnapshot() {
         Product p = product(100L, "Mouse", new BigDecimal("25.00"), 10, sellerA);
         addCartItem(p, 2);
-        when(cartRepository.findByUserId(1L)).thenReturn(Optional.of(cart));
-        when(productRepository.findById(100L)).thenReturn(Optional.of(p));
+        when(cartRepository.findByUserIdForUpdate(1L)).thenReturn(Optional.of(cart));
+        when(productRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(p));
 
         OrderResponse response = orderService.checkout(1L);
 
@@ -193,8 +193,8 @@ class OrderServiceImplTest {
     void checkout_snapshotsProductName() {
         Product p = product(100L, "Wireless Mouse", new BigDecimal("19.99"), 10, sellerA);
         addCartItem(p, 1);
-        when(cartRepository.findByUserId(1L)).thenReturn(Optional.of(cart));
-        when(productRepository.findById(100L)).thenReturn(Optional.of(p));
+        when(cartRepository.findByUserIdForUpdate(1L)).thenReturn(Optional.of(cart));
+        when(productRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(p));
 
         OrderResponse response = orderService.checkout(1L);
 
@@ -207,9 +207,9 @@ class OrderServiceImplTest {
         Product p2 = product(101L, "Keyboard", new BigDecimal("49.50"), 10, sellerB);
         addCartItem(p1, 2);
         addCartItem(p2, 1);
-        when(cartRepository.findByUserId(1L)).thenReturn(Optional.of(cart));
-        when(productRepository.findById(100L)).thenReturn(Optional.of(p1));
-        when(productRepository.findById(101L)).thenReturn(Optional.of(p2));
+        when(cartRepository.findByUserIdForUpdate(1L)).thenReturn(Optional.of(cart));
+        when(productRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(p1));
+        when(productRepository.findByIdForUpdate(101L)).thenReturn(Optional.of(p2));
 
         OrderResponse response = orderService.checkout(1L);
 
@@ -222,8 +222,8 @@ class OrderServiceImplTest {
     void checkout_decrementsStock() {
         Product p = product(100L, "Mouse", new BigDecimal("19.99"), 10, sellerA);
         addCartItem(p, 3);
-        when(cartRepository.findByUserId(1L)).thenReturn(Optional.of(cart));
-        when(productRepository.findById(100L)).thenReturn(Optional.of(p));
+        when(cartRepository.findByUserIdForUpdate(1L)).thenReturn(Optional.of(cart));
+        when(productRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(p));
 
         orderService.checkout(1L);
 
@@ -235,8 +235,8 @@ class OrderServiceImplTest {
     void checkout_clearsCartOnlyOnSuccess() {
         Product p = product(100L, "Mouse", new BigDecimal("19.99"), 10, sellerA);
         addCartItem(p, 1);
-        when(cartRepository.findByUserId(1L)).thenReturn(Optional.of(cart));
-        when(productRepository.findById(100L)).thenReturn(Optional.of(p));
+        when(cartRepository.findByUserIdForUpdate(1L)).thenReturn(Optional.of(cart));
+        when(productRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(p));
 
         orderService.checkout(1L);
 
@@ -250,9 +250,9 @@ class OrderServiceImplTest {
         Product p2 = product(101L, "Keyboard", new BigDecimal("20.00"), 10, sellerB);
         addCartItem(p1, 1);
         addCartItem(p2, 2);
-        when(cartRepository.findByUserId(1L)).thenReturn(Optional.of(cart));
-        when(productRepository.findById(100L)).thenReturn(Optional.of(p1));
-        when(productRepository.findById(101L)).thenReturn(Optional.of(p2));
+        when(cartRepository.findByUserIdForUpdate(1L)).thenReturn(Optional.of(cart));
+        when(productRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(p1));
+        when(productRepository.findByIdForUpdate(101L)).thenReturn(Optional.of(p2));
 
         ArgumentCaptor<Order> captor = ArgumentCaptor.forClass(Order.class);
         orderService.checkout(1L);
@@ -269,9 +269,9 @@ class OrderServiceImplTest {
         Product p2 = product(101L, "Keyboard", new BigDecimal("20.00"), 10, sellerB);
         addCartItem(p1, 1);
         addCartItem(p2, 1);
-        when(cartRepository.findByUserId(1L)).thenReturn(Optional.of(cart));
-        when(productRepository.findById(100L)).thenReturn(Optional.of(p1));
-        when(productRepository.findById(101L)).thenReturn(Optional.of(p2));
+        when(cartRepository.findByUserIdForUpdate(1L)).thenReturn(Optional.of(cart));
+        when(productRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(p1));
+        when(productRepository.findByIdForUpdate(101L)).thenReturn(Optional.of(p2));
 
         ArgumentCaptor<Order> captor = ArgumentCaptor.forClass(Order.class);
         orderService.checkout(1L);
@@ -285,8 +285,8 @@ class OrderServiceImplTest {
     void checkout_failure_noOrderSavedNoStockDecrementNoCartClear() {
         Product bad = product(100L, "Mouse", new BigDecimal("10.00"), 0, sellerA);
         addCartItem(bad, 1);
-        when(cartRepository.findByUserId(1L)).thenReturn(Optional.of(cart));
-        when(productRepository.findById(100L)).thenReturn(Optional.of(bad));
+        when(cartRepository.findByUserIdForUpdate(1L)).thenReturn(Optional.of(cart));
+        when(productRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(bad));
 
         assertThrows(ApiException.class, () -> orderService.checkout(1L));
 
@@ -301,8 +301,8 @@ class OrderServiceImplTest {
     void checkout_failedCheckout_cartUnchanged() {
         Product p = product(100L, "Mouse", new BigDecimal("10.00"), 1, sellerA);
         addCartItem(p, 3);
-        when(cartRepository.findByUserId(1L)).thenReturn(Optional.of(cart));
-        when(productRepository.findById(100L)).thenReturn(Optional.of(p));
+        when(cartRepository.findByUserIdForUpdate(1L)).thenReturn(Optional.of(cart));
+        when(productRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(p));
 
         assertThrows(ApiException.class, () -> orderService.checkout(1L));
 
@@ -314,8 +314,8 @@ class OrderServiceImplTest {
     void checkout_stockNeverNegative() {
         Product p = product(100L, "Mouse", new BigDecimal("10.00"), 2, sellerA);
         addCartItem(p, 5);
-        when(cartRepository.findByUserId(1L)).thenReturn(Optional.of(cart));
-        when(productRepository.findById(100L)).thenReturn(Optional.of(p));
+        when(cartRepository.findByUserIdForUpdate(1L)).thenReturn(Optional.of(cart));
+        when(productRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(p));
 
         ApiException ex = assertThrows(ApiException.class, () -> orderService.checkout(1L));
 
