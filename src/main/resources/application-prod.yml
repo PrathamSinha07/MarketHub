@@ -1,0 +1,26 @@
+# ---------------------------------------------------------------------------
+# `prod` profile - production hardening. Activate with:
+#
+#   SPRING_PROFILES_ACTIVE=prod
+#
+# It only adds rules that make an incomplete production configuration fail
+# fast at startup; it never weakens security to help the app start.
+# ---------------------------------------------------------------------------
+spring:
+  jpa:
+    hibernate:
+      # The schema belongs to Flyway. Hibernate must only check that code and
+      # schema agree; if they drift, the app refuses to start (JPA_DDL_AUTO
+      # can override this during a controlled migration).
+      ddl-auto: ${JPA_DDL_AUTO:validate}
+    show-sql: false
+  h2:
+    console:
+      # The H2 web console is a local-development tool; never in production.
+      enabled: false
+
+logging:
+  level:
+    root: ${LOG_LEVEL_ROOT:INFO}
+    # SQL/HTTP noise stays off in production regardless of SHOW_SQL.
+    org.hibernate.SQL: WARN

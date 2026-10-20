@@ -8,6 +8,10 @@
 # Never activate this profile in production.
 # ---------------------------------------------------------------------------
 spring:
+  # The local H2 file is still maintained by Hibernate (same schema, different
+  # dialect); the PostgreSQL Flyway migrations do not apply to it.
+  flyway:
+    enabled: false
   datasource:
     url: jdbc:h2:file:./data/markethub-local;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH
     username: sa
