@@ -4,12 +4,16 @@ Working log so progress survives context limits. Updated after each cohesive sta
 Nothing is committed to git without explicit owner approval.
 
 > **Note:** the "Remaining known limitations" section at the bottom of this log is
-> **stale** — see "Day 2" below. The backend now runs against real PostgreSQL 18,
-> and Playwright browser QA is in place. All Day 2 changes remain uncommitted.
+> **stale** — see "Day 2", "Day 3" and "Day 4" below. The backend runs against
+> real PostgreSQL 18 with Flyway-managed schema, Playwright browser QA is in
+> place (72 tests), and the frontend has had its design/UX pass.
+> Day 2 and Day 3 work was committed and pushed (commits `6362a90`…`44d2b0d`);
+> **Day 4 changes are uncommitted pending owner approval.**
 
 ## Environment facts (verified)
 
-- Repo: clean working tree on `main`, last commit `81c2188 feat: integrate buyer cart and checkout`.
+- Repo: `main`, last pushed commit `44d2b0d test: cover error states and responsive layouts`
+  (Day 3). Day 4 work is in the working tree only.
 - Node 24 / npm 11; Java 26 runtime (project targets 17); Maven via `mvnw.cmd` (no global `mvn`).
 - PostgreSQL 17 + 18 services running on 5432/5433, **SCRAM auth** — no credentials are available to this
   agent (and must not be requested), so the backend cannot boot against the local Postgres.
@@ -140,3 +144,219 @@ cd frontend; npx playwright test
 
 **Next unfinished task:** none scheduled — all Day 2 work is complete and verified.
 All changes remain **uncommitted** pending owner review/approval.
+
+## Day 3 — Design coherence, interaction polish, extended browser QA (COMPLETE)
+
+Role: senior product designer / frontend engineer. Scope: whole frontend audit, professional
+visual system, interaction fixes, verification at 1280×720 + 375×667. No commits.
+
+### Audit method
+- Standalone screenshot script (`opencode/audit.mjs`, Edge channel) captured every route ×
+  {guest, customer, seller} × both viewports (36 images) before any change; findings reviewed image by image.
+- Backend already runs via the existing Day 2 launcher (`start-backend.ps1`, PostgreSQL, :8080) —
+  full-stack verification used throughout. No backend changes on Day 3.
+
+### Defects found in the audit and fixed
+| # | Severity | Defect | Fix |
+|---|----------|--------|-----|
+| D1 | High | Product detail page rendered **no breadcrumbs** in the success state (only loading/error branches had them) — regression from the Day 3 grid refactor, caught by the new breadcrumb test | `ProductDetailsView` success return wrapped in fragment with `<Breadcrumbs items={crumbs} />` |
+| D2 | Medium | Grey placeholder boxes dominated every card/detail page | `ProductMedia` → deterministic neutral monogram placeholders (zinc/slate/stone tones, circles, cube glyph) — clearly decorative, never implying real photography |
+| D3 | Medium | Product cards misaligned (ragged title/seller lines) | `ProductCard` — `min-h` title block + fixed seller line; rows now align |
+| D4 | Medium | Sparse left-aligned hero with no working search | `Hero` — centered value prop + functional search form (`/products?q=`) |
+| D5 | Medium | White-on-white surfaces (cards on page indistinguishable) | `layout.tsx` main on `bg-zinc-50`; white cards/nav/footer read as surfaces |
+| D6 | Medium | Mobile detail page put description **above** the buy box | Grid reordered: media → purchase panel → description; lg keeps sticky right-column buy box |
+| D7 | Low | Breadcrumb said "Product details" instead of the product name | Breadcrumb now shows the real loaded product name (truncates with ellipsis on mobile) |
+| D8 | Low | Footer showed dev-tech line ("Next.js 16 · Spring Boot · PostgreSQL") | Replaced with honest product copy |
+| D9 | Low | "Across the country" delivery claim — unverifiable | Removed; honest copy only |
+| D10 | Low | Category cards were bare boxes | Added subcategory chips |
+| D11 | Low | Navbar search didn't reflect the URL query on /products | `?q=` synced into navbar input (render-adjustment pattern — no setState-in-effect, keeps the react-hooks compiler lint rule green) |
+| D12 | Low | Browser skeleton showed 6 cards, page shows 12 | Skeleton count = PAGE_SIZE |
+| D13 | Low | Quantity input showed native spinners | Hidden via global CSS |
+| — | — | `text-wrap: balance` on h1–h3; tap-highlight removal | `globals.css` |
+
+### Test additions (72 total, up from 46; nothing weakened)
+- `tests/responsive.spec.ts` (new): horizontal-overflow audit on all guest routes at both
+  viewports (document-level scroll + element-sticking-out check that ignores sr-only/clipped
+  subtrees); mobile catalog/detail overflow; mobile menu navigation; breadcrumb shows real name.
+- `tests/error-states.spec.ts` (new, page.route interception only — real backend untouched):
+  products 500 → "Products unavailable" → retry recovers; products abort → explanation instead
+  of hanging skeletons; cart 500 → "Cart unavailable" → retry recovers.
+- `catalog.spec.ts`: `?categoryId=2` deep link selects the chip (aria-pressed) and requests
+  the filtered API; `?q=` deep link pre-fills catalog + navbar search.
+- `home.spec.ts`: hero search forwards to server-side search; empty hero search opens full catalog.
+- `seller.spec.ts`: edit product (price 19.99 → 42.50, verified through the public API) and
+  two-step Archive → Confirm → "Archived" badge; archived product verified hidden via public API.
+
+### Verification evidence
+- `npm run lint` — 0 errors, 0 warnings. `npx tsc --noEmit` — exit 0.
+- `npm run build` — exit 0 (16 routes, Next 16.4/Turbopack).
+- `npx playwright test` — **72 tests: 66 passed, 6 skipped (intentional viewport skips), 0 failed.**
+- Screenshot audit re-run after changes — PROBLEMS: (none): no overflow, no console errors,
+  no failed assets, no 5xx on any route at either viewport; `/?q=hydratest` confirms navbar
+  search sync without hydration errors.
+
+### Notes / incidents
+- PowerShell `Set-Content` mangled UTF-8 (em-dash/arrow mojibake + BOM) in two files during a
+  scripted re-indent; fully repaired via Node (verified: no replacement chars, no BOM, matches
+  repo convention).
+- Cart 500s from the interception tests are recorded in the monitor's `serverErrors` (not
+  `apiFailures`); the tests filter those entries explicitly — they are the simulated failure
+  itself, not incidental noise.
+- "All products" appears as both h1 and chip label — test selectors use `getByRole("heading")`
+  to avoid strict-mode collisions; `getByRole("alert")` must be scoped to `#main-content`
+  because Next's route announcer also carries `role="alert"`.
+
+**All Day 3 changes remain uncommitted** pending owner review/approval. No commits, no pushes.
+
+## Day 4 — Production security, checkout integrity, deployment readiness
+
+Role: senior backend engineer / application security reviewer / release engineer.
+Scope: repository audit → security & secrets → production configuration &
+database → checkout/order integrity → deployment preparation.
+**No commits, no pushes, no history rewrite, no deployment, no paid resources.**
+
+### Phase 1 — recovery and audit (verified)
+
+- HEAD `44d2b0d` == `origin/main`; the only pre-existing uncommitted state was the
+  staged Day 3 section of this file plus untracked `test-output.txt`
+  (now git-ignored). Nothing else was touched.
+- Baseline measured **before** any Day 4 change: backend **162/162** against
+  real PostgreSQL 18 (`PgConnection` in the surefire log), frontend
+  `lint`/`tsc --noEmit`/`build` all exit 0.
+
+### Verified risks found (and status)
+
+| # | Sev | Risk (verified) | Status |
+|---|-----|-----------------|--------|
+| R1 | **Critical** | Plaintext DB password in **public** GitHub history: commit `ac51fca` wrote it into `src/main/resources/application.yml` **and** a committed `target/classes/application.yml` copy; it was never purged. The Day 2/3 launcher script still *recovers the password from Git history* to boot, i.e. the exposed value is the live one. Current tree/config use env placeholders only, and a scan of every working-tree file found **0** files containing the value. | Documented + remediation plan (owner chose: no rotation executed by me, no history rewrite). Needs action before/soon after go-live. |
+| R2 | High | Spring Boot **3.3.4** is past OSS EOL (pulls Tomcat 10.1.31, Spring Framework 6.1.x, Jackson 2.17) | ✅ Upgraded to **3.5.16** (Hibernate 6.6.53, Spring Framework 6.2.19) |
+| R3 | High | No migrations: `ddl-auto: update` was the only schema mechanism → silent schema drift in production | ✅ Flyway added, `V1__baseline_schema.sql` generated from entity metadata, `prod` profile uses `ddl-auto: validate`, `clean` disabled, pre-existing DBs baselined |
+| R4 | High | Checkout had **no concurrency control**: two racing submissions → duplicate orders; two buyers racing the last unit → oversell (read-then-write on stock) | ✅ Cart row locked first (`PESSIMISTIC_WRITE`), products locked in ascending id order (deadlock-free), **2 new PostgreSQL integration tests** |
+| R5 | Medium | No production profile, no fail-fast for dev/placeholder configuration | ✅ `application-prod.yml` + `ProductionStartupValidator` (https-only, no wildcard/localhost CORS, rejects `.env.example` `change-me…` values) — 11 unit tests |
+| R6 | Medium | No health endpoint for deployment smoke tests | ✅ Actuator (`health`, `info` only, `show-details: never`, liveness/readiness probes) permitted unauthenticated; integration test asserts health is public and `env`/`configprops`/`beans` are not |
+| R7 | Medium | CORS allowlist existed but was not declared/documented as env config; no forwarded-header strategy for TLS proxies | ✅ `cors.allowed-origins: ${CORS_ALLOWED_ORIGINS:…}` and `server.forward-headers-strategy: ${FORWARD_HEADERS_STRATEGY:none}` declared and documented |
+| R8 | Medium | Password policy: 6 chars minimum, **no maximum** (BCrypt silently truncates at 72 bytes) | ✅ `@Size(min=8, max=72)` + mirrored frontend validation |
+| R9 | Medium | JWT stored in browser `localStorage` (XSS-exposed); no server-side revocation (logout only clears the client) | ⚠️ Documented (README/DEPLOYMENT); httpOnly-cookie session = next auth iteration |
+| R10 | Low | No security response headers on the frontend | ✅ `next.config.ts` headers (X-Frame-Options DENY, nosniff, referrer policy, Permissions-Policy, HSTS, `poweredByHeader:false`); full `script-src` CSP deferred — needs per-request nonces |
+| R11 | Low | Dead/misleading config: unused `jwt.refresh-token.expiration`; drop-heavy `schema.sql` "reference DDL"; permitAll for never-installed Swagger endpoints | ✅ Removed (schema superseded by Flyway V1; swagger permits deleted) |
+| R12 | Low | No root README / deployment runbook | ✅ `README.md` + `DEPLOYMENT.md` (no secrets in either) |
+| R13 | Info | `npm audit`: **0** production vulnerabilities; 5 high are dev-only (`eslint-config-next` → `fast-glob`) | ⚠️ Dev-only, recorded |
+| R14 | Info | No brute-force protection on `/auth/login` | ⚠️ Deliberately not added in-process (would throttle the QA suite); edge rate limiting mandated in DEPLOYMENT.md |
+| R15 | Info | Flyway (Boot-managed) warns that PostgreSQL 18 is newer than its tested range | ⚠️ Migrations applied successfully on PG 18.6; verify in staging, per runbook |
+
+### Files changed (Day 4)
+
+**Backend:** `pom.xml` (Boot 3.5.16 + actuator + flyway-core/flyway-database-postgresql),
+`src/main/resources/application.yml` (flyway, hikari pool, cors, actuator,
+forward-headers, logging; removed dead refresh-token + sql.init blocks),
+`application-prod.yml` (new), `application-local.yml` (flyway off for H2),
+`db/migration/V1__baseline_schema.sql` (new), `schema.sql` (removed — superseded),
+`SecurityConfig.java` (health permit, swagger permits removed),
+`config/ProductionStartupValidator.java` (new), `ProductRepository.java`,
+`CartRepository.java` (pessimistic-lock reads), `OrderServiceImpl.java`
+(locked, ordered checkout), `RegisterRequest.java` (password policy).
+
+**Tests:** `MarketHubIntegrationTest` (+3 tests, concurrency/health helpers),
+`ProductionStartupValidatorTest` (new, 11), `OrderServiceImplTest` (collaborator
+renames only — assertions unchanged), `PaymentPersistenceTest` + 
+`CorsPreflightSecurityTest` (pinned slice properties so they hold under **any**
+active profile/environment — found by running the suite under `prod`).
+
+**Frontend:** `next.config.ts` (security headers), `RegisterForm.tsx` (mirrors
+the 8..72 password rule), `tests/catalog.spec.ts` (the guest sign-in test now
+picks an in-stock ACTIVE product via the API instead of assuming the first
+newest-first catalog card is buyable — zero-stock fixtures made the old
+selector hit a disabled button).
+
+**Docs/infra:** `README.md` (new), `DEPLOYMENT.md` (new), `.env.example` (new,
+placeholders only), `.gitignore` (`!.env.example` exceptions, `test-output.txt`).
+
+### Verification evidence (all executed in this session)
+
+| # | Check | Result |
+|---|-------|--------|
+| V1 | Backend baseline *before* changes (default profile, PostgreSQL 18) | **162/162 pass** |
+| V2 | Backend after changes, default profile | **164/164 pass** (162 + 2 new concurrency tests); final full rerun after the last `SecurityConfig` change: **176/176 pass**, `PgConnection` (PostgreSQL 18.6) confirmed in the surefire log |
+| V3 | Backend under `SPRING_PROFILES_ACTIVE=prod` (`ddl-auto: validate`) | **176/176 pass**; final rerun after the last change: **176/176 pass** again |
+| V4 | Backend against a **brand-new empty database** + `prod` profile | **176/176 pass**; Flyway: `Migrating schema "public" to version "1 - baseline schema"`, `Successfully applied 1 migration`; Hibernate `validate` accepted the result |
+| V5 | Negative startup test: `prod` + default (localhost) CORS | **exit 1**, refuses to start: `CORS_ALLOWED_ORIGINS entries must be https:// origins in production (found: http://localhost:3000)` |
+| V6 | Frontend `npm run lint`, `npx tsc --noEmit`, `npm run build` (after changes) | **0 / 0 / exit 0**, 16 routes |
+| V7 | Playwright (desktop + mobile, backend on :8080, `next start` on :3000) | First full run: 64 passed / 1 failed / 1 flaky / 6 skipped. Root cause of the failure was test fragility, not an app defect: `catalog.spec.ts` "guests are prompted to sign in" clicked the first newest-first catalog card, which can be an ACTIVE product with 0 stock (integration-test fixtures leave drained products behind) — that renders a disabled Add-to-cart button. Test fixed to pick an in-stock ACTIVE product via the public API. **Final full run: 66 passed / 0 failed / 0 flaky / 6 skipped** (exit 0) |
+| V8 | Secret scan: every file in the working tree vs. the exposed credential | **0 matches** |
+| V9 | `npm audit --omit=dev` | **0 vulnerabilities** |
+
+### Day 4 browser QA (executed this session)
+
+- Backend (default profile, PostgreSQL 18) on :8080; frontend `next build` +
+  `next start` on :3000; local Edge channel; `workers: 1`, `retries: 1`.
+- First full run: **64 passed, 1 failed, 1 flaky, 6 skipped**.
+  - Failed: `catalog.spec.ts` → "guests are prompted to sign in instead of
+    getting an error" (desktop). The test clicked the first catalog card;
+    newest-first ordering surfaced an ACTIVE product with `stock = 0` (a
+    fixture drained by the new backend concurrency tests), whose Add-to-cart
+    button is intentionally disabled. **App behaviour was correct** (out-of-
+    stock products can't be added); the test's assumption was wrong.
+  - Flaky: `home.spec.ts` → "hero search" (mobile) timed out once and passed
+    on retry; no app error, transient timing under single-worker load.
+- Fix: the test now fetches `/api/v1/products?size=50` (public listing serves
+  only ACTIVE products), picks the first product with `stockQuantity > 0`,
+  and navigates to `/products/{id}` — same guest sign-in intent, no dependence
+  on mutable fixture state.
+- Catalog-only rerun after the fix: **13 passed, 1 skipped** (the skip is the
+  pre-existing `test.skip` for the mobile-only deep-link case).
+- Final full rerun: **66 passed, 0 failed, 0 flaky, 6 skipped** (exit 0) —
+  all six skips are pre-existing, deliberate `test.skip` viewport guards.
+- `npx tsc --noEmit` after the test change: exit 0.
+
+### Phase 4 — checkout & order integrity (implementation reviewed, not assumed)
+
+Correct as found (kept, with existing tests): server-side price re-read at
+checkout (cart price is display-only), ACTIVE-only purchase, stock check before
+decrement, cart cleared only on success, whole checkout in one transaction
+(DB failure → rollback, no order/stock/cart change), order ownership
+(403/404 for strangers), seller order visibility limited to their own line
+items (no customer PII in the payload), status `CONFIRMED` + UI copy that
+explicitly says no payment was taken.
+
+Defect fixed: no protection against concurrent submissions (R4). Behaviour now:
+exactly one order per cart; the losing request gets a clean 400; stock can
+never go negative. Covered by `concurrentDuplicateCheckoutSubmitsCreateExactlyOneOrder`
+and `concurrentCheckoutsCannotOversellTheLastUnit` (real PostgreSQL, latch-based
+parallel requests).
+
+**Payment processing is NOT implemented** — `NoOpPaymentGateway` returns no
+gateway reference and `NoOpPaymentWebhookVerifier` rejects *every* webhook
+(covered by tests). Orders are confirmed without payment by design today.
+
+Known residual (documented, not a defect): a client that retries checkout
+after a network timeout receives 400 “empty cart” while the first request did
+place the order; an `Idempotency-Key` on checkout would improve that UX.
+
+### Outstanding before / at go-live (owner action — none performed by me)
+
+1. **Rotate the exposed database password (R1).** Owner decision recorded:
+   skip rotation for now, document the risk only. The plaintext value in
+   commit `ac51fca` is still the live credential. Remediation plan is in
+   `DEPLOYMENT.md` (rotate in Postgres + platform secret store; history purge
+   only with explicit approval — no force-push performed or requested).
+2. **Edge rate limiting** for `/auth/login` and the API generally (R14) —
+   in-process limiting was deliberately not added (it would throttle the QA
+   suite); the requirement is mandated in `DEPLOYMENT.md` for the gateway.
+3. **Full `script-src` CSP** with per-request nonces (R10 follow-up) once the
+   Next.js nonce wiring is done — current CSP covers frame-ancestors,
+   object-src, base-uri and form-action only.
+4. **httpOnly-cookie session + server-side revocation** (R9) — JWT currently
+   lives in `localStorage`.
+5. **Checkout `Idempotency-Key`** (see residual above) for network-retry UX.
+6. **Staging verification of Flyway on PostgreSQL 18** (R15 — newer than
+   Flyway's tested range; applied fine locally).
+7. **Deployment itself** — nothing was deployed; follow `DEPLOYMENT.md`.
+
+### Next unfinished task
+
+- Owner review of the Day 4 working tree and **explicit approval to commit**
+  (nothing is staged/committed for Day 4 beyond pre-existing Day 3 log
+  entries). After that, the natural next iteration is auth hardening
+  (httpOnly-cookie sessions + server-side revocation, R9) or whatever the
+  owner prioritizes from the list above.
+

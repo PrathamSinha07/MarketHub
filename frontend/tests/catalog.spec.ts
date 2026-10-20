@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import {
+  API_BASE,
   expectClean,
   expectNoHorizontalOverflow,
   monitor,
@@ -108,10 +109,24 @@ test.describe("catalog", () => {
 
   test("guests are prompted to sign in instead of getting an error", async ({
     page,
+    request,
   }) => {
     const m = monitor(page);
-    await page.goto("/products");
-    await page.locator("#main-content article").first().locator("h3 a").click();
+    // The first catalog card is not guaranteed to be purchasable: the
+    // newest-first ordering can surface ACTIVE listings with zero stock
+    // (e.g. fixtures drained by other tests), and those render a disabled
+    // Add-to-cart button. Pick a genuinely in-stock product via the API so
+    // this test always exercises the guest sign-in prompt. The public
+    // listing only serves ACTIVE products.
+    const listing = await request.get(`${API_BASE}/products?size=50`);
+    expect(listing.ok()).toBeTruthy();
+    const { data } = await listing.json();
+    const inStock = data.content.find(
+      (p: { stockQuantity: number }) => p.stockQuantity > 0
+    );
+    expect(inStock, "expected at least one in-stock ACTIVE product").toBeTruthy();
+
+    await page.goto(`/products/${inStock.id}`);
     await expect(page.locator("#product-name")).toBeVisible();
 
     await page.getByRole("button", { name: "Add to cart", exact: true }).click();

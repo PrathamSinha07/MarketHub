@@ -16,6 +16,12 @@ buildNumber.properties
 # Environment variables
 .env
 .env.*
+# ...but the documented examples are meant to be committed.
+!.env.example
+!.env.*.example
+
+# Local run artifacts
+test-output.txt
 
 # IDE - IntelliJ IDEA
 .idea/
