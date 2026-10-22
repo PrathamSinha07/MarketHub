@@ -52,14 +52,24 @@ export function ProductDetailsView({
   }
 
   if (!product) {
+    // Reached when the id is not a valid product id (e.g. /products/abc):
+    // retrying can never succeed, so offer the catalog instead of a dead
+    // "Try again" button.
     return (
       <>
         <Breadcrumbs items={crumbs} />
         <ErrorState
           title="Product not found"
           message="The product you are looking for does not exist or is no longer available."
-          onRetry={reload}
         />
+        <p className="mt-4 text-center">
+          <Link
+            href="/products"
+            className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
+          >
+            ← Browse all products
+          </Link>
+        </p>
       </>
     );
   }
@@ -132,6 +142,7 @@ export function ProductDetailsView({
               </label>
               <div className="mt-1.5">
                 <QuantitySelector
+                  inputId="quantity"
                   quantity={quantity}
                   max={Math.max(product.stockQuantity, 1)}
                   onChange={setQuantity}

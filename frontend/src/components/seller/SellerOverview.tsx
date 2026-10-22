@@ -74,9 +74,11 @@ export function SellerOverview() {
 
   const stats = useMemo(() => {
     const items = data ?? [];
-    const orderIds = new Set(items.map((item) => item.orderId));
-    const units = items.reduce((sum, item) => sum + item.quantity, 0);
-    const revenue = items.reduce((sum, item) => sum + Number(item.subtotal), 0);
+    // Cancelled orders are not sales: they must not inflate the dashboard.
+    const salesItems = items.filter((item) => item.orderStatus !== "CANCELLED");
+    const orderIds = new Set(salesItems.map((item) => item.orderId));
+    const units = salesItems.reduce((sum, item) => sum + item.quantity, 0);
+    const revenue = salesItems.reduce((sum, item) => sum + Number(item.subtotal), 0);
     const recent = [...items]
       .sort(
         (a, b) =>
@@ -86,6 +88,10 @@ export function SellerOverview() {
       .slice(0, 5);
 
     const products = productPage?.content ?? [];
+    const totalProducts = productPage?.totalElements ?? products.length;
+    // The dashboard loads one page of products; when the store is bigger,
+    // the per-status counts are scoped to that page and labelled as such.
+    const countsScoped = totalProducts > products.length;
     const activeCount = products.filter((p) => p.status === "ACTIVE").length;
     const outOfStockCount = products.filter(
       (p) => p.status === "OUT_OF_STOCK"
@@ -97,9 +103,11 @@ export function SellerOverview() {
       units,
       revenue,
       recent,
-      totalProducts: products.length,
+      totalProducts,
       activeCount,
       outOfStockCount,
+      countsScoped,
+      loadedPageSize: products.length,
       productsLoaded: !productsLoading,
     };
   }, [data, productPage, productsLoading]);
@@ -153,12 +161,12 @@ export function SellerOverview() {
             <MetricCard
               label="Units sold"
               value={String(stats.units)}
-              footnote="Across all seller order items"
+              footnote="Excludes cancelled orders"
             />
             <MetricCard
               label="Order revenue"
               value={formatPrice(stats.revenue)}
-              footnote="Sum of your item subtotals"
+              footnote="Your item subtotals, excluding cancelled orders"
             />
             <MetricCard
               label="Total products"
@@ -168,12 +176,20 @@ export function SellerOverview() {
             <MetricCard
               label="Active products"
               value={stats.productsLoaded ? String(stats.activeCount) : "…"}
-              footnote="Visible in the marketplace"
+              footnote={
+                stats.countsScoped
+                  ? `Among your ${stats.loadedPageSize} most recent products`
+                  : "Visible in the marketplace"
+              }
             />
             <MetricCard
               label="Out-of-stock products"
               value={stats.productsLoaded ? String(stats.outOfStockCount) : "…"}
-              footnote="Unavailable for purchase"
+              footnote={
+                stats.countsScoped
+                  ? `Among your ${stats.loadedPageSize} most recent products`
+                  : "Unavailable for purchase"
+              }
             />
           </div>
 

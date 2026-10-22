@@ -4,7 +4,10 @@ import type { InitiatePaymentRequest, PaymentResponse } from "@/types/payment";
 /**
  * Service for the Spring Boot payment API (`/payments`).
  * Requires an authenticated customer (JWT) — see `lib/session.ts`.
- * Not yet wired into the UI; prepared for the payments task.
+ *
+ * Payment processing is intentionally incomplete: payments can be initiated
+ * and read, but no gateway is integrated, so they stay PENDING. The order
+ * history uses `getPayments()` to show that state honestly.
  */
 export const paymentService = {
   initiatePayment(
@@ -24,5 +27,10 @@ export const paymentService = {
 
   getPaymentByOrder(orderId: number): Promise<PaymentResponse> {
     return apiClient.get<PaymentResponse>(`/payments/order/${orderId}`);
+  },
+
+  /** All payments belonging to the signed-in customer. */
+  getPayments(): Promise<PaymentResponse[]> {
+    return apiClient.get<PaymentResponse[]>("/payments");
   },
 };

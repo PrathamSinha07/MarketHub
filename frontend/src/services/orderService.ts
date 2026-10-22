@@ -4,7 +4,7 @@ import type { OrderResponse, SellerOrderItemResponse } from "@/types/order";
 /**
  * Service for the Spring Boot order API (`/orders`).
  * Requires an authenticated user (JWT) — see `lib/session.ts`.
- * Not yet wired into the UI; prepared for the checkout task.
+ * Wired into checkout, customer order history and the seller orders view.
  */
 export const orderService = {
   checkout(): Promise<OrderResponse> {

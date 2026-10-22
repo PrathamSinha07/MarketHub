@@ -24,6 +24,7 @@ export interface PaymentResponse {
   amount: number;
   currency: string;
   paymentReference: string;
-  gatewayReferenceId: string;
+  /** Null while no real gateway is integrated (the no-op gateway). */
+  gatewayReferenceId: string | null;
   createdAt: string;
 }

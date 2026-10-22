@@ -5,6 +5,8 @@ interface QuantitySelectorProps {
   max: number;
   onChange: (quantity: number) => void;
   disabled?: boolean;
+  /** Optional id for the input, so an external <label htmlFor> can target it. */
+  inputId?: string;
 }
 
 /** Accessible quantity stepper bounded by available stock. */
@@ -13,6 +15,7 @@ export function QuantitySelector({
   max,
   onChange,
   disabled,
+  inputId,
 }: QuantitySelectorProps) {
   const decrease = () => onChange(Math.max(1, quantity - 1));
   const increase = () => onChange(Math.min(max, quantity + 1));
@@ -34,6 +37,7 @@ export function QuantitySelector({
         −
       </button>
       <input
+        id={inputId}
         type="number"
         inputMode="numeric"
         min={1}

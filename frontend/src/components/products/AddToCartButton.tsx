@@ -37,6 +37,9 @@ export function AddToCartButton({
 }: AddToCartButtonProps) {
   const [notice, setNotice] = useState<Notice>({ kind: "none" });
   const [submitting, setSubmitting] = useState(false);
+  // Quantity the last successful add used. Changing the stepper afterwards
+  // must not leave an "Added to your cart" message describing a stale amount.
+  const [addedForQuantity, setAddedForQuantity] = useState<number | null>(null);
   const { user } = useAuth();
   const { applyCart } = useCart();
   const pathname = usePathname();
@@ -56,6 +59,7 @@ export function AddToCartButton({
     try {
       const cart = await cartService.addToCart({ productId, quantity });
       applyCart(cart);
+      setAddedForQuantity(quantity);
       setNotice({ kind: "added" });
     } catch (error) {
       setNotice({ kind: "error", message: errorMessage(error) });
@@ -96,7 +100,7 @@ export function AddToCartButton({
             : "This account doesn't include a shopping cart. Sign in with a customer account to buy."}
         </p>
       )}
-      {notice.kind === "added" && (
+      {notice.kind === "added" && addedForQuantity === quantity && (
         <p
           className="mt-3 text-sm font-medium text-emerald-600"
           role="status"

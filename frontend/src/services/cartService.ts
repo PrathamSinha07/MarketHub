@@ -8,7 +8,7 @@ import type {
 /**
  * Service for the Spring Boot cart API (`/cart`).
  * Requires an authenticated customer (JWT) — see `lib/session.ts`.
- * Not yet wired into the UI; prepared for the cart task.
+ * Wired into `CartContext`, the cart page, add-to-cart and checkout.
  */
 export const cartService = {
   getCart(): Promise<CartResponse> {
