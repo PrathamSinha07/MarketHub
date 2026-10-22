@@ -3,17 +3,20 @@
 Working log so progress survives context limits. Updated after each cohesive stage.
 Nothing is committed to git without explicit owner approval.
 
-> **Note:** the "Remaining known limitations" section at the bottom of this log is
-> **stale** — see "Day 2", "Day 3" and "Day 4" below. The backend runs against
-> real PostgreSQL 18 with Flyway-managed schema, Playwright browser QA is in
-> place (72 tests), and the frontend has had its design/UX pass.
-> Day 2 and Day 3 work was committed and pushed (commits `6362a90`…`44d2b0d`);
-> **Day 4 changes are uncommitted pending owner approval.**
+> **Note (updated Session 012 / Day 5):** the "Remaining known limitations" section
+> at the bottom of this log is **stale** — see "Day 2", "Day 3", "Day 4" and
+> "Day 5" below. The backend runs against real PostgreSQL 18 with Flyway-managed
+> schema (`V1` + `V2`), Playwright browser QA is in place (72 tests), and the
+> frontend has had its design/UX pass.
+> Days 2–4 were committed and pushed (commits `6362a90`…`ee498f1`, HEAD ==
+> `origin/main`);
+> **Day 5 (Sessions 011–012) changes are uncommitted pending owner approval.**
 
 ## Environment facts (verified)
 
-- Repo: `main`, last pushed commit `44d2b0d test: cover error states and responsive layouts`
-  (Day 3). Day 4 work is in the working tree only.
+- Repo: `main`, HEAD `ee498f1 test: stabilize catalog QA and update project log`
+  == `origin/main` (Day 4 work is committed/pushed). Day 5 (Sessions 011–012)
+  work is in the working tree only — 38 uncommitted paths.
 - Node 24 / npm 11; Java 26 runtime (project targets 17); Maven via `mvnw.cmd` (no global `mvn`).
 - PostgreSQL 17 + 18 services running on 5432/5433, **SCRAM auth** — no credentials are available to this
   agent (and must not be requested), so the backend cannot boot against the local Postgres.
@@ -359,4 +362,102 @@ place the order; an `Idempotency-Key` on checkout would improve that UX.
   entries). After that, the natural next iteration is auth hardening
   (httpOnly-cookie sessions + server-side revocation, R9) or whatever the
   owner prioritizes from the list above.
+  → *Superseded: Day 4 was subsequently committed and pushed (`e8b8bf5`,
+  `0cf854f`, `4cad734`, `7baedeb`, `ee498f1`). See Day 5.*
+
+## Day 5 — Integrity, correctness and polish sweep (Sessions 011–012, COMPLETE)
+
+Role: full-stack engineer / QA. Scope: fix real defects across frontend and
+backend, tighten checkout/payment semantics, remove the launcher's dependency
+on the historically exposed credential, run the full verification suite.
+**No commits, no pushes, no history rewrite, no deployment.**
+
+### Backend fixes
+
+| # | Defect | Fix |
+|---|--------|-----|
+| B11 | JWT filter accepted tokens for **disabled** accounts | `JwtAuthenticationFilter` now gates on `isEnabled()` — new `JwtAuthenticationFilterTest` (8 tests) |
+| B12 | Duplicate email with different casing bypassed the unique constraint (case-sensitive `email`) | emails normalized (trim + lowercase) in register **and** login; `V2` migration adds `lower(email)` unique index |
+| B13 | Category delete → 500 when subcategories/products exist; parent cycles possible | delete refuses **409** when children exist; `ProductRepository.existsByCategoryId`; cycle prevention; `Category` cascade ALL → PERSIST+MERGE; new `CategoryServiceImplTest` (8 tests) |
+| B14 | `DataIntegrityViolationException` surfaced as 500 | mapped to **409** in `GlobalExceptionHandler` |
+| B15 | Cart update allowed adding an unavailable (DRAFT/ARCHIVED) product; cleared cart kept orphan rows | availability check on update; `clearCart` uses `orphanRemoval`; responses now return **live** product price (checkout re-prices anyway) |
+| B16 | Search `LIKE` wildcards (`%`, `_`) in user input not escaped | escaped in `ProductServiceImpl` |
+| B17 | No input length limits on product/category/registration DTOs | `@Size` limits added to `ProductRequest`, `CategoryRequest`, `RegisterRequest` |
+| B18 | Payments not visible to customers anywhere | new read-only `GET /payments` list endpoint; order history shows per-order payment status |
+| B19 | `ddl-auto: update` default could silently drift schema under Flyway | default → **`validate`** for PostgreSQL profiles (`local` H2 keeps `update`) |
+| — | Redundant/misleading indexes and comments | `V2__integrity_and_indexes.sql`: products `seller_id`/`category_id` indexes, drop redundant webhook index; stale doc comments fixed |
+
+### Frontend fixes
+
+- `CustomerOrdersView` rewritten: payment status badges (No payment initiated /
+  Payment pending / Paid), race-safe attempt-counter retry, sorted orders,
+  honest "not paid" disclaimer footnote.
+- `ProductsBrowser`: search + category now live in the **URL** (`router.replace`)
+  — shareable/back-button-friendly; page state kept out of state-sync loops.
+- `Navbar`: categories dropdown closes on outside click; disclosure ARIA
+  (removed invalid `role="menu"`); `CategoryCard` restructured — subcategory
+  chips are links (no nested `<a>`).
+- `RegisterForm`: password hint corrected to 8 chars; `?role=ROLE_SELLER`
+  preselects the seller role (Footer/Sell CTA now link there).
+- `ProductDetailsView`: dead retry branch removed; quantity input wired to
+  `QuantitySelector` (`inputId`).
+- `SellerOverview`: totals from `totalElements`; CANCELLED orders excluded from
+  revenue/units; scoped footnotes.
+- `AddToCartButton`: stale "Added" notice cleared on quantity change.
+- `paymentService.getPayments()` added; `gatewayReferenceId: string | null`
+  typed honestly; stale service doc comments fixed.
+
+### Security (launcher / credential)
+
+- New committed launcher `scripts/Start-Backend.ps1` reads credentials **only**
+  from environment variables or git-ignored `.env` — it never touches git
+  history.
+- Temp launcher scripts rewritten to stop recovering the password from commit
+  `ac51fca`.
+- Secret-pattern grep of `src/main/resources` + `scripts/`: **0 matches**.
+- `.env.example` JPA_DDL_AUTO comment updated for the `validate` default.
+- **Rotation of the exposed credential remains an owner action** (interactive
+  `psql \password`) — procedure documented in `DEPLOYMENT.md`; no history
+  rewrite performed or requested.
+
+### Payment / checkout semantics (resolved, honest)
+
+- No-op gateway returns **null** reference; webhook verifier **rejects all**
+  webhooks; orders are created `CONFIRMED` meaning *"order confirmed, stock
+  reserved, NOT paid"* — stated in code comments, API docs, and UI copy.
+- Integration test `paymentLifecycleStaysPendingAndRejectsUnverifiedWebhooks`
+  locks this in: payment stays PENDING, unverified webhook → rejected, no
+  silent paid transition.
+
+### Verification evidence (all executed Sessions 011–012)
+
+| # | Check | Result |
+|---|-------|--------|
+| W1 | Backend, default profile, **real PostgreSQL 18.6** (isolated instance, `PgConnection` confirmed) | **195/195 pass** (Day 5 pre-commit review rerun, `BUILD SUCCESS`; an earlier intermediate run recorded 194 — the rerun against the final tree is authoritative) |
+| W2 | Backend, `SPRING_PROFILES_ACTIVE=prod` (`ddl-auto: validate`), same PostgreSQL | **195/195 pass** |
+| W3 | Flyway on an **empty** database | `V1` + `V2` applied successfully; Hibernate `validate` accepted |
+| W4 | `npm run lint` | **0 errors, 0 warnings** |
+| W5 | `npx tsc --noEmit` | exit 0 |
+| W6 | `npm run build` (Next 16 / Turbopack) | exit 0, 16 routes |
+| W7 | Playwright full suite (desktop 1280×720 + mobile 375×667, backend :8080, `next start` :3000) | First run: **57 passed / 9 failed / 6 skipped** — all 9 traced to two causes, fixed and re-verified: (a) `home.spec.ts` asserted the old ARIA `role="menu"` on the Navbar categories dropdown, which this session deliberately replaced with a disclosure panel of plain links → **test updated to the new (correct) pattern** (`#navbar-categories-panel` + link role), assertion strength unchanged; (b) the fresh isolated database lacked the `Electronics` (id 2) category and any category-2 product that exist in the dev database (migrations ship no seed data; `POST /products` with a nonexistent category correctly 404s) → fixture parity seeded in the throwaway DB. **Final full run: 66 passed / 0 failed / 6 skipped** (exit 0) — same passing set as the Day 4 baseline |
+| W8 | Secret-pattern scan of config/scripts vs. exposed credential | **0 matches** |
+| W9 | API smoke flow (register → uppercase-email login → add to cart → `POST /orders/checkout` → order history → `GET /payments` → cart re-read) | register OK, case-insensitive login OK, checkout → `CONFIRMED`, cart cleared, order listed, payments list empty (no payment record created — by design), unauthenticated `/cart` `/orders` `/payments` → **401** |
+
+Verification used an **isolated throwaway PostgreSQL 18** on `127.0.0.1:25432`
+(trust auth, temp data dir) because the owner's PostgreSQL uses SCRAM and the
+only credential in reach is the exposed one — which must not be used. The
+system PostgreSQL services were not touched.
+
+### Files changed (Day 5) — 38 uncommitted paths
+
+See `git status` for the authoritative list: 17 backend main/test files,
+17 frontend files, `.env.example`, plus untracked `scripts/`,
+`V2__integrity_and_indexes.sql`, `CategoryServiceImplTest.java`,
+`JwtAuthenticationFilterTest.java`.
+
+### Next unfinished task
+
+1. Owner review of the Day 5 working tree → **explicit approval to commit**.
+2. Owner-action: rotate the exposed DB password (R1, unchanged).
+3. Deployment preparation remains per `DEPLOYMENT.md` — nothing deployed.
 

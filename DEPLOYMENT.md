@@ -95,12 +95,14 @@ Startup validation (all under the `prod` profile) fails fast when:
 3. Migrations are Flyway files under `src/main/resources/db/migration`.
    They run **at application startup**, in order, recorded in
    `flyway_schema_history`:
-   - empty database → `V1__baseline_schema.sql` is applied;
+   - empty database → `V1__baseline_schema.sql` then `V2__integrity_and_indexes.sql`
+     are applied;
    - database created before Flyway existed → adopted with
      `baseline-on-migrate` (version 1) and left untouched;
-4. Schema changes ship as `V2__*.sql` **with** the entity change in the same
+4. Schema changes ship as `V3__*.sql` **with** the entity change in the same
    commit. Applied migrations are immutable.
-5. With `prod` active, Hibernate validates the schema (`ddl-auto: validate`):
+5. Hibernate validates the schema (`ddl-auto: validate`, the default for
+   PostgreSQL profiles):
    code/schema drift stops the deployment instead of silently altering tables.
 6. `flyway:clean` is disabled in configuration; do not re-enable it.
 
