@@ -23,7 +23,19 @@ export function RegisterForm() {
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<Role>("ROLE_CUSTOMER");
+  // "Sell on MarketHub" / "Create a seller account" CTAs link to
+  // /register?role=ROLE_SELLER, so the form opens preselected for that role.
+  // RequireGuest defers this form until after hydration, so reading the URL
+  // here cannot cause a server/client mismatch.
+  const [role, setRole] = useState<Role>(() => {
+    if (typeof window === "undefined") {
+      return "ROLE_CUSTOMER";
+    }
+    return new URLSearchParams(window.location.search).get("role") ===
+      "ROLE_SELLER"
+      ? "ROLE_SELLER"
+      : "ROLE_CUSTOMER";
+  });
   const [storeName, setStoreName] = useState("");
   const [storeDescription, setStoreDescription] = useState("");
 
@@ -154,7 +166,7 @@ export function RegisterForm() {
         label="Password"
         htmlFor="register-password"
         error={fieldErrors.password}
-        hint="At least 6 characters."
+        hint="At least 8 characters, at most 72."
       >
         <input
           id="register-password"

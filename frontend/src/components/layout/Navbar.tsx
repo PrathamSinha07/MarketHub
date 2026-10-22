@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
@@ -224,6 +224,25 @@ export function Navbar() {
   const { data: categories } = useCategories();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [categoriesOpen, setCategoriesOpen] = useState(false);
+  const categoriesRef = useRef<HTMLDivElement | null>(null);
+
+  // Close the categories dropdown on any click outside it; without this the
+  // panel stayed open over the page until Escape or a link was chosen.
+  useEffect(() => {
+    if (!categoriesOpen) {
+      return;
+    }
+    function handlePointerDown(event: MouseEvent) {
+      if (
+        categoriesRef.current &&
+        !categoriesRef.current.contains(event.target as Node)
+      ) {
+        setCategoriesOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, [categoriesOpen]);
 
   // This component hydrates inside the root layout's Suspense boundary.
   // Signalling the auth provider from here means the session restore (which
@@ -263,7 +282,7 @@ export function Navbar() {
           <NavLink href="/" label="Home" active={pathname === "/"} />
           <NavLink href="/products" label="Products" active={isProductsActive} />
 
-          <div className="relative">
+          <div className="relative" ref={categoriesRef}>
             <button
               type="button"
               onClick={() => setCategoriesOpen((open) => !open)}
@@ -273,7 +292,7 @@ export function Navbar() {
                 }
               }}
               aria-expanded={categoriesOpen}
-              aria-haspopup="true"
+              aria-controls="navbar-categories-panel"
               className={cn(
                 "flex items-center gap-1 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                 isProductsActive
@@ -290,14 +309,19 @@ export function Navbar() {
               />
             </button>
 
+            {/*
+              A plain disclosure panel, not an ARIA menu: the entries are
+              ordinary links, so browser/AT keyboard support (Tab, Enter)
+              already applies - no menu-widget roles to promise arrow-key
+              navigation we don't implement.
+            */}
             {categoriesOpen && (
               <div
-                role="menu"
+                id="navbar-categories-panel"
                 className="absolute left-0 z-50 mt-1 w-56 rounded-lg border border-zinc-200 bg-white py-1 shadow-lg"
               >
                 <Link
                   href="/products"
-                  role="menuitem"
                   onClick={() => setCategoriesOpen(false)}
                   className="block px-4 py-2 text-sm text-zinc-700 hover:bg-zinc-50"
                 >
@@ -310,7 +334,6 @@ export function Navbar() {
                   <Link
                     key={category.id}
                     href={`/products?categoryId=${category.id}`}
-                    role="menuitem"
                     onClick={() => setCategoriesOpen(false)}
                     className="block px-4 py-2 text-sm text-zinc-700 hover:bg-zinc-50"
                   >

@@ -104,9 +104,10 @@ test.describe("home & navigation", () => {
     const m = monitor(page);
     await page.goto("/");
     await page.getByRole("button", { name: "Categories" }).click();
-    const menu = page.getByRole("menu");
-    await expect(menu).toBeVisible();
-    await menu.getByRole("menuitem", { name: "Electronics" }).click();
+    // The dropdown is a disclosure panel of plain links (not an ARIA menu).
+    const panel = page.locator("#navbar-categories-panel");
+    await expect(panel).toBeVisible();
+    await panel.getByRole("link", { name: "Electronics" }).click();
 
     await expect(page).toHaveURL(/\/products\?categoryId=2/);
     await expect(

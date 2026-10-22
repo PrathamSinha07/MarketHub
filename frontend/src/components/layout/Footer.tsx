@@ -52,7 +52,7 @@ export function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="/register" className="hover:text-zinc-900">
+                <Link href="/register?role=ROLE_SELLER" className="hover:text-zinc-900">
                   Sell on MarketHub
                 </Link>
               </li>

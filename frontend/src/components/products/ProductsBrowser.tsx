@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import { useCategories } from "@/hooks/useCategories";
 import { useProducts } from "@/hooks/useProducts";
 import { ProductGrid } from "@/components/products/ProductGrid";
@@ -90,13 +91,14 @@ export function ProductsBrowser({
   initialCategoryId?: number;
   initialQuery?: string;
 }) {
-  const [categoryId, setCategoryId] = useState<number | undefined>(
-    initialCategoryId
-  );
+  // Category and query are URL-driven (see navigateTo below), so the
+  // initial props are read-only state.
+  const [categoryId] = useState<number | undefined>(initialCategoryId);
   const [page, setPage] = useState(0);
   const [query, setQuery] = useState(initialQuery ?? "");
-  const [submittedQuery, setSubmittedQuery] = useState(initialQuery ?? "");
+  const [submittedQuery] = useState(initialQuery ?? "");
   const [sortBy, setSortBy] = useState("newest");
+  const router = useRouter();
 
   const { data: categories } = useCategories();
   const {
@@ -116,21 +118,32 @@ export function ProductsBrowser({
     (category) => category.id === categoryId
   );
 
+  // Category and search state live in the URL (the page remounts this
+  // browser when its params change), so any view here is shareable and
+  // survives reloads.
+  function navigateTo(next: { categoryId?: number; q?: string }) {
+    const params = new URLSearchParams();
+    if (next.categoryId !== undefined) {
+      params.set("categoryId", String(next.categoryId));
+    }
+    if (next.q) {
+      params.set("q", next.q);
+    }
+    const qs = params.toString();
+    router.replace(qs ? `/products?${qs}` : "/products");
+  }
+
   const selectCategory = (id?: number) => {
-    setCategoryId(id);
-    setPage(0);
+    navigateTo({ categoryId: id, q: submittedQuery.trim() });
   };
 
   function handleSearchSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setPage(0);
-    setSubmittedQuery(query.trim());
+    navigateTo({ categoryId, q: query.trim() });
   }
 
   const clearSearch = () => {
-    setQuery("");
-    setSubmittedQuery("");
-    setPage(0);
+    navigateTo({ categoryId });
   };
 
   return (

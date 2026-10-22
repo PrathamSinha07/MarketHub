@@ -32,7 +32,28 @@ export function RequireGuest({ children }: { children: ReactNode }) {
     router.replace(safeRedirectPath(nextRef.current ?? undefined));
   }, [restoring, user, router]);
 
-  if (restoring || user) {
+  if (restoring) {
+    // Card-shaped placeholder matching AuthCard's footprint, so the form
+    // appears in place (instead of a blank frame) while the session is
+    // being restored.
+    return (
+      <div
+        className="w-full rounded-lg border border-zinc-200 bg-white p-6 shadow-sm sm:p-8"
+        aria-hidden="true"
+      >
+        <div className="h-7 w-28 animate-pulse rounded bg-zinc-200" />
+        <div className="mt-8 h-6 w-56 animate-pulse rounded bg-zinc-200" />
+        <div className="mt-2 h-4 w-72 max-w-full animate-pulse rounded bg-zinc-100" />
+        <div className="mt-8 space-y-4">
+          <div className="h-10 animate-pulse rounded-md bg-zinc-100" />
+          <div className="h-10 animate-pulse rounded-md bg-zinc-100" />
+          <div className="h-10 animate-pulse rounded-md bg-zinc-100" />
+        </div>
+      </div>
+    );
+  }
+
+  if (user) {
     return null;
   }
 
