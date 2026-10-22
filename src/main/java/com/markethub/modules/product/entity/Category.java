@@ -38,6 +38,9 @@ public class Category extends BaseEntity {
     private Category parent;
 
     @Builder.Default
-    @OneToMany(mappedBy = "parent", cascade = CascadeType.ALL)
+    // PERSIST/MERGE only: cascading REMOVE through this collection would delete
+    // child categories behind the caller's back. Deletion is validated explicitly
+    // in CategoryServiceImpl instead.
+    @OneToMany(mappedBy = "parent", cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     private List<Category> subCategories = new ArrayList<>();
 }

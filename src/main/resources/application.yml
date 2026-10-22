@@ -40,10 +40,10 @@ spring:
       connection-timeout: ${DB_CONNECTION_TIMEOUT_MS:10000}
   jpa:
     hibernate:
-      # `update` keeps an existing database in place while developing; the
-      # `prod` profile defaults to `validate` so Hibernate can never mutate a
-      # production schema (migrations are Flyway's job).
-      ddl-auto: ${JPA_DDL_AUTO:update}
+      # Flyway owns the schema in every PostgreSQL environment; Hibernate only
+      # checks that code and schema agree and refuses to start on drift. (The
+      # `local` H2 profile keeps `update` for its throwaway dev database.)
+      ddl-auto: ${JPA_DDL_AUTO:validate}
     # SQL logging is noisy and can leak row data into logs: opt in via SHOW_SQL=true.
     show-sql: ${SHOW_SQL:false}
     properties:

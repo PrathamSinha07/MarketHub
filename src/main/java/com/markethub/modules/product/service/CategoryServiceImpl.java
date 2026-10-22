@@ -6,20 +6,25 @@ import com.markethub.modules.product.dto.CategoryRequest;
 import com.markethub.modules.product.dto.CategoryResponse;
 import com.markethub.modules.product.entity.Category;
 import com.markethub.modules.product.repository.CategoryRepository;
+import com.markethub.modules.product.repository.ProductRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
 public class CategoryServiceImpl implements CategoryService {
 
     private final CategoryRepository categoryRepository;
+    private final ProductRepository productRepository;
 
-    public CategoryServiceImpl(CategoryRepository categoryRepository) {
+    public CategoryServiceImpl(CategoryRepository categoryRepository, ProductRepository productRepository) {
         this.categoryRepository = categoryRepository;
+        this.productRepository = productRepository;
     }
 
     @Override
@@ -70,6 +75,18 @@ public class CategoryServiceImpl implements CategoryService {
     @Transactional
     public void deleteCategory(Long categoryId) {
         Category category = getCategory(categoryId);
+
+        // Deleting a parent category would either cascade-delete its children
+        // or trip a foreign-key error mid-delete (a 500). Refuse cleanly while
+        // the category is still referenced by subcategories or products.
+        if (!category.getSubCategories().isEmpty()) {
+            throw new ApiException(HttpStatus.CONFLICT,
+                    "Cannot delete a category that still has subcategories");
+        }
+        if (productRepository.existsByCategoryId(categoryId)) {
+            throw new ApiException(HttpStatus.CONFLICT,
+                    "Cannot delete a category that still has products");
+        }
         categoryRepository.delete(category);
     }
 
@@ -94,8 +111,29 @@ public class CategoryServiceImpl implements CategoryService {
         if (currentCategoryId != null && currentCategoryId.equals(parentId)) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "A category cannot be its own parent");
         }
-        return categoryRepository.findById(parentId)
+        Category parent = categoryRepository.findById(parentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Category", "id", parentId));
+
+        // Reject parent choices that would create a cycle (A -> B followed by
+        // B -> A): walk up the proposed parent's ancestry; if the category being
+        // edited appears in it, the new hierarchy would loop forever.
+        if (currentCategoryId != null) {
+            Set<Long> seen = new HashSet<>();
+            Category cursor = parent;
+            while (cursor != null) {
+                if (currentCategoryId.equals(cursor.getId())) {
+                    throw new ApiException(HttpStatus.BAD_REQUEST,
+                            "Category hierarchy cannot contain a cycle");
+                }
+                if (!seen.add(cursor.getId())) {
+                    // Pre-existing cycle in the data - refuse rather than loop.
+                    throw new ApiException(HttpStatus.CONFLICT,
+                            "Category hierarchy is corrupted and must be repaired first");
+                }
+                cursor = cursor.getParent();
+            }
+        }
+        return parent;
     }
 
     private CategoryResponse toResponse(Category category) {

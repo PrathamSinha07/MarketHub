@@ -132,6 +132,32 @@ class MarketHubIntegrationTest {
     }
 
     @Test
+    void registrationAndLoginAreCaseInsensitiveOnEmail() {
+        String mixedCase = "it-Case-" + sfx + "@Example.COM";
+
+        Map<String, Object> register = new HashMap<>();
+        register.put("email", mixedCase);
+        register.put("password", "Password1!");
+        register.put("firstName", "Integration");
+        register.put("lastName", "CaseTester");
+        register.put("role", "ROLE_CUSTOMER");
+
+        ResponseEntity<String> created = post(API + "/auth/register", register, null);
+        assertEquals(201, created.getStatusCode().value(), created.getBody());
+        // Emails are stored normalized (lower-case).
+        assertEquals(mixedCase.toLowerCase(java.util.Locale.ROOT), data(created).get("email").asText());
+
+        // The same address in a different case is the same account.
+        Map<String, Object> duplicate = new HashMap<>(register);
+        duplicate.put("email", mixedCase.toLowerCase(java.util.Locale.ROOT));
+        ResponseEntity<String> duplicateRes = post(API + "/auth/register", duplicate, null);
+        assertEquals(400, duplicateRes.getStatusCode().value(), duplicateRes.getBody());
+
+        // Login works with any casing of the address.
+        assertEquals("ROLE_CUSTOMER", login(mixedCase.toUpperCase(java.util.Locale.ROOT), "Password1!"));
+    }
+
+    @Test
     void authorizationAndRoleRestrictionsAreEnforced() {
         String customer = registerCustomer("authz-cust");
         String seller = registerSeller("authz-store").token;
@@ -315,6 +341,70 @@ class MarketHubIntegrationTest {
         // Second checkout of an empty cart is a clean 400.
         ResponseEntity<String> emptyCheckout = post(API + "/orders/checkout", null, customer);
         assertEquals(400, emptyCheckout.getStatusCode().value(), emptyCheckout.getBody());
+    }
+
+    // ------------------------------------------------------------- payments
+
+    /**
+     * Payment module end-to-end. No gateway is integrated, so a payment can be
+     * initiated but must stay PENDING forever: the no-op gateway fabricates no
+     * gateway reference, and every webhook (signed or not) is rejected. This is
+     * what guarantees an unpaid order can never be represented as paid.
+     */
+    @Test
+    void paymentLifecycleStaysPendingAndRejectsUnverifiedWebhooks() {
+        String customer = registerCustomer("pay-cust");
+        Seller seller = registerSeller("pay-store");
+        Long category = ensureCategory();
+
+        JsonNode product = createProduct(seller.token, "IT Payable " + sfx, category,
+                new BigDecimal("10.00"), 50);
+        post(API + "/cart/items",
+                Map.of("productId", product.get("id").asLong(), "quantity", 2), customer);
+        JsonNode order = data(post(API + "/orders/checkout", null, customer));
+        long orderId = order.get("orderId").asLong();
+
+        // Payments are customer-only: anonymous 401, seller 403.
+        assertEquals(401, get(API + "/payments", null).getStatusCode().value());
+        assertEquals(403, get(API + "/payments", seller.token).getStatusCode().value());
+
+        // Initiate a payment: created PENDING, with no gateway reference.
+        ResponseEntity<String> initiated = post(API + "/payments",
+                Map.of("orderId", orderId, "paymentMethod", "COD"), customer);
+        assertEquals(201, initiated.getStatusCode().value(), initiated.getBody());
+        JsonNode payment = data(initiated);
+        assertEquals("PENDING", payment.get("status").asText());
+        assertTrue(payment.get("gatewayReferenceId").isNull(),
+                "No-op gateway must not fabricate a gateway reference");
+
+        // Listed for the customer and retrievable per order.
+        JsonNode payments = data(get(API + "/payments", customer));
+        assertEquals(1, payments.size());
+        assertEquals("PENDING",
+                data(get(API + "/payments/order/" + orderId, customer)).get("status").asText());
+
+        // A second active payment for the same order is refused.
+        ResponseEntity<String> duplicate = post(API + "/payments",
+                Map.of("orderId", orderId, "paymentMethod", "COD"), customer);
+        assertEquals(409, duplicate.getStatusCode().value(), duplicate.getBody());
+
+        // Webhooks: missing signature is a 400, a forged signature is a 403.
+        String reference = payment.get("paymentReference").asText();
+        ResponseEntity<String> noSignature = post(API + "/payments/webhook",
+                Map.of("paymentReference", reference, "status", "CAPTURED",
+                        "eventId", "it-evt-nosig-" + sfx), null);
+        assertEquals(400, noSignature.getStatusCode().value(), noSignature.getBody());
+
+        ResponseEntity<String> forged = post(API + "/payments/webhook",
+                Map.of("paymentReference", reference, "status", "CAPTURED",
+                        "eventId", "it-evt-forged-" + sfx, "signature", "forged"), null);
+        assertEquals(403, forged.getStatusCode().value(), forged.getBody());
+
+        // Still pending after the attempts: nothing became "paid".
+        assertEquals("PENDING",
+                data(get(API + "/payments/order/" + orderId, customer)).get("status").asText());
+        assertEquals("PENDING", data(get(API + "/payments", customer))
+                .get(0).get("status").asText());
     }
 
     /**

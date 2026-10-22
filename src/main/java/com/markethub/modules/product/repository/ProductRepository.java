@@ -23,6 +23,9 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
 
     Page<Product> findByCategoryIdAndStatus(Long categoryId, ProductStatus status, Pageable pageable);
 
+    /** Used by category deletion to refuse deleting a category that still has products. */
+    boolean existsByCategoryId(Long categoryId);
+
     /**
      * Row-locked read used by checkout: the row is re-read after the lock is
      * granted, so two concurrent checkouts can never both observe the same

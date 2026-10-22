@@ -86,12 +86,18 @@ public class ProductServiceImpl implements ProductService {
 
         String term = search == null ? "" : search.trim();
         if (!term.isEmpty()) {
-            String pattern = "%" + term.toLowerCase(Locale.ROOT) + "%";
+            // Escape LIKE wildcards so a search for "100%" or "a_c" matches
+            // those literals instead of acting as a pattern.
+            String escaped = term
+                    .replace("\\", "\\\\")
+                    .replace("%", "\\%")
+                    .replace("_", "\\_");
+            String pattern = "%" + escaped.toLowerCase(Locale.ROOT) + "%";
             spec = spec.and((root, query, cb) -> cb.or(
-                    cb.like(cb.lower(root.get("name")), pattern),
-                    cb.like(cb.lower(root.get("description")), pattern),
-                    cb.like(cb.lower(root.get("slug")), pattern),
-                    cb.like(cb.lower(root.join("seller", JoinType.INNER).get("storeName")), pattern)));
+                    cb.like(cb.lower(root.get("name")), pattern, '\\'),
+                    cb.like(cb.lower(root.get("description")), pattern, '\\'),
+                    cb.like(cb.lower(root.get("slug")), pattern, '\\'),
+                    cb.like(cb.lower(root.join("seller", JoinType.INNER).get("storeName")), pattern, '\\')));
         }
 
         return productRepository.findAll(spec, pageable).map(this::toResponse);
