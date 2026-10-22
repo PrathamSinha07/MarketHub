@@ -83,6 +83,21 @@ public class GlobalExceptionHandler {
                 HttpStatus.BAD_REQUEST);
     }
 
+    /**
+     * Unique-constraint / foreign-key violations are *expected* errors (e.g. two
+     * concurrent registrations with the same email, a duplicate category name):
+     * answer 409 instead of leaking an opaque 500. The exception message itself
+     * is never echoed - constraint names and column values stay in the log.
+     */
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<ApiResponse<Object>> handleDataIntegrityViolation(
+            org.springframework.dao.DataIntegrityViolationException ex) {
+        log.warn("Data integrity violation: {}", ex.getMostSpecificCause().getMessage());
+        return new ResponseEntity<>(
+                ApiResponse.error("A record with the same unique value already exists"),
+                HttpStatus.CONFLICT);
+    }
+
     /** e.g. /products/abc where a Long id is expected. */
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ApiResponse<Object>> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {

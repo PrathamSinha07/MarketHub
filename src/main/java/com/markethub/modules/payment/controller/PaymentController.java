@@ -18,6 +18,8 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/payments")
 public class PaymentController {
@@ -48,6 +50,16 @@ public class PaymentController {
     ) {
         PaymentResponse response = paymentService.getPayment(userDetails.getUser().getId(), paymentId);
         return ResponseEntity.ok(ApiResponse.success(response, "Payment retrieved successfully"));
+    }
+
+    /** The signed-in customer's payments, newest first (order history view). */
+    @GetMapping
+    @PreAuthorize("hasAuthority('ROLE_CUSTOMER')")
+    public ResponseEntity<ApiResponse<List<PaymentResponse>>> getPayments(
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        List<PaymentResponse> response = paymentService.getPaymentsForUser(userDetails.getUser().getId());
+        return ResponseEntity.ok(ApiResponse.success(response, "Payments retrieved successfully"));
     }
 
     @GetMapping("/order/{orderId}")

@@ -92,7 +92,7 @@ class CartServiceImplTest {
     }
 
     @Test
-    void addToCart_activeProduct_createsItemWithPriceSnapshot() {
+    void addToCart_activeProduct_createsItemPricedAtCurrentPrice() {
         when(cartRepository.findByUserId(1L)).thenReturn(Optional.of(cart));
         when(productRepository.findById(100L)).thenReturn(Optional.of(product));
 
@@ -117,20 +117,21 @@ class CartServiceImplTest {
     }
 
     @Test
-    void addToCart_sameProductTwice_mergesQuantityAndKeepsOriginalSnapshot() {
+    void addToCart_sameProductTwice_mergesQuantityAndShowsCurrentPrice() {
         when(cartRepository.findByUserId(1L)).thenReturn(Optional.of(cart));
         when(productRepository.findById(100L)).thenReturn(Optional.of(product));
 
         cartService.addToCart(1L, new AddToCartRequest(100L, 2));
 
-        // Price changes before the second add; snapshot must be preserved.
+        // Price changes before the second add: the merged cart must show the
+        // current product price, because that is what checkout will charge.
         product.setPrice(new BigDecimal("5.00"));
         CartResponse response = cartService.addToCart(1L, new AddToCartRequest(100L, 3));
 
         assertEquals(1, response.getItems().size());
         assertEquals(5, response.getItems().get(0).getQuantity());
-        assertEquals(new BigDecimal("19.99"), response.getItems().get(0).getUnitPrice());
-        assertEquals(new BigDecimal("99.95"), response.getSubtotal());
+        assertEquals(new BigDecimal("5.00"), response.getItems().get(0).getUnitPrice());
+        assertEquals(new BigDecimal("25.00"), response.getSubtotal());
     }
 
     @Test
@@ -182,8 +183,9 @@ class CartServiceImplTest {
     }
 
     @Test
-    void getCart_missing_returns404Exception() {
+    void getCart_unknownUser_returns404Exception() {
         when(cartRepository.findByUserId(1L)).thenReturn(Optional.empty());
+        when(userRepository.findById(1L)).thenReturn(Optional.empty());
 
         assertThrows(ResourceNotFoundException.class, () -> cartService.getCart(1L));
     }
@@ -257,11 +259,23 @@ class CartServiceImplTest {
         CartItem item = CartItem.builder().cart(cart).product(product).quantity(1).unitPrice(new BigDecimal("19.99")).build();
         cart.getItems().add(item);
         when(cartRepository.findByUserId(1L)).thenReturn(Optional.of(cart));
-        when(cartItemRepository.findByCartId(10L)).thenReturn(List.of(item));
 
         CartResponse response = cartService.clearCart(1L);
 
         assertTrue(response.getItems().isEmpty());
-        verify(cartItemRepository).deleteAll(List.of(item));
+        // The items collection has orphanRemoval, so no explicit deleteAll.
+        verify(cartItemRepository, never()).deleteAll(any());
+    }
+
+    @Test
+    void updateCartItem_unavailableProduct_rejected() {
+        product.setStatus(ProductStatus.ARCHIVED);
+        CartItem item = CartItem.builder().cart(cart).product(product).quantity(1).unitPrice(new BigDecimal("19.99")).build();
+        cart.getItems().add(item);
+        when(cartItemRepository.findById(50L)).thenReturn(Optional.of(item));
+
+        ApiException ex = assertThrows(ApiException.class,
+                () -> cartService.updateCartItem(1L, 50L, new UpdateCartItemRequest(2)));
+        assertEquals(org.springframework.http.HttpStatus.BAD_REQUEST, ex.getStatus());
     }
 }

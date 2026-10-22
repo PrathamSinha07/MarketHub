@@ -69,6 +69,11 @@ public class OrderServiceImpl implements OrderService {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Cannot checkout with an empty cart");
         }
 
+        // CONFIRMED here means "the order is confirmed and stock is reserved"
+        // - it does NOT mean money was collected. No payment gateway is
+        // integrated: the payment module stays PENDING and the webhook
+        // verifier rejects every event, so no order can become "paid" through
+        // this path. The checkout UI states this explicitly.
         Order order = Order.builder()
                 .user(cart.getUser())
                 .status(OrderStatus.CONFIRMED)

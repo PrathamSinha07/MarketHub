@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -101,6 +102,9 @@ public class CartServiceImpl implements CartService {
 
         CartItem item = getCartItem(cartItemId);
         verifyItemBelongsToUser(item, userId);
+        // Same availability rule as addToCart: an item whose product has since
+        // been archived/drafted/out-of-stock must not be grown in the cart.
+        validateProductAvailable(item.getProduct());
         validateStock(item.getProduct(), request.getQuantity());
 
         item.setQuantity(request.getQuantity());
@@ -126,8 +130,10 @@ public class CartServiceImpl implements CartService {
     @Transactional
     public CartResponse clearCart(Long userId) {
         Cart cart = getCartByUserId(userId);
+        // `items` has orphanRemoval = true, so clearing the collection removes
+        // the rows; an explicit deleteAll here would double-delete the same
+        // managed entities.
         cart.getItems().clear();
-        cartItemRepository.deleteAll(cartItemRepository.findByCartId(cart.getId()));
         cartRepository.save(cart);
         return toResponse(cart);
     }
@@ -138,12 +144,16 @@ public class CartServiceImpl implements CartService {
     }
 
     private Cart getOrCreateCart(Long userId) {
-        return cartRepository.findByUserId(userId)
-                .orElseGet(() -> {
-                    User user = userRepository.findById(userId)
-                            .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
-                    return cartRepository.save(Cart.builder().user(user).build());
-                });
+        Cart existing = cartRepository.findByUserId(userId).orElse(null);
+        if (existing != null) {
+            return existing;
+        }
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+        // If two concurrent first-time requests race to create the
+        // one-cart-per-user row, the loser hits the unique constraint and
+        // receives a clean 409 (see GlobalExceptionHandler) instead of a 500.
+        return cartRepository.save(Cart.builder().user(user).items(new ArrayList<>()).build());
     }
 
     private Product getProduct(Long productId) {
@@ -175,14 +185,17 @@ public class CartServiceImpl implements CartService {
     }
 
     private CartResponse toResponse(Cart cart) {
+        // Prices are rendered from the product's *current* price, not the
+        // add-time snapshot, so the cart total always matches what checkout
+        // will actually charge (checkout re-reads the live price).
         List<CartItemResponse> items = cart.getItems().stream()
                 .map(item -> new CartItemResponse(
                         item.getId(),
                         item.getProduct().getId(),
                         item.getProduct().getName(),
                         item.getQuantity(),
-                        item.getUnitPrice(),
-                        item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity()))
+                        item.getProduct().getPrice(),
+                        item.getProduct().getPrice().multiply(BigDecimal.valueOf(item.getQuantity()))
                 ))
                 .toList();
 
