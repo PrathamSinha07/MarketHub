@@ -174,7 +174,7 @@ class CorsPreflightSecurityTest {
     }
 
     @Test
-    void postProducts_unauthenticated_forbidden() throws Exception {
+    void postProducts_unauthenticated_unauthorized() throws Exception {
         mockMvc.perform(post("/products")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(validProductJson()))

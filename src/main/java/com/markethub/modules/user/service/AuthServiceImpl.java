@@ -45,7 +45,20 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public AuthResponse register(RegisterRequest request) {
-        if (Boolean.TRUE.equals(userRepository.existsByEmail(request.getEmail()))) {
+        // Emails are stored and compared case-insensitively: Bob@Example.com
+        // and bob@example.com are the same account, and the user can sign in
+        // with any casing.
+        String email = normalizeEmail(request.getEmail());
+
+        // BCrypt silently truncates input longer than 72 *bytes*; reject such
+        // passwords up front instead of hashing only a prefix of them.
+        if (request.getPassword() != null
+                && request.getPassword().getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 72) {
+            throw new ApiException(HttpStatus.BAD_REQUEST,
+                    "Password must be at most 72 bytes long");
+        }
+
+        if (Boolean.TRUE.equals(userRepository.existsByEmail(email))) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Email already registered");
         }
 
@@ -68,7 +81,7 @@ public class AuthServiceImpl implements AuthService {
         }
 
         User user = User.builder()
-                .email(request.getEmail())
+                .email(email)
                 .password(passwordEncoder.encode(request.getPassword()))
                 .firstName(request.getFirstName())
                 .lastName(request.getLastName())
@@ -99,11 +112,13 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public AuthResponse login(LoginRequest request) {
+        String email = normalizeEmail(request.getEmail());
+
         authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
+                new UsernamePasswordAuthenticationToken(email, request.getPassword())
         );
 
-        User user = userRepository.findByEmail(request.getEmail())
+        User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Invalid email or password"));
 
         CustomUserDetails userDetails = new CustomUserDetails(user);
@@ -115,5 +130,10 @@ public class AuthServiceImpl implements AuthService {
                 .role(user.getRole().name())
                 .userId(user.getId())
                 .build();
+    }
+
+    /** Emails are case-insensitive; store and look up a single canonical form. */
+    private static String normalizeEmail(String email) {
+        return email == null ? null : email.trim().toLowerCase(java.util.Locale.ROOT);
     }
 }

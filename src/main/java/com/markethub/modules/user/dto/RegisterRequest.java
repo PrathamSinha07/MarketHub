@@ -18,13 +18,16 @@ public class RegisterRequest {
     private String password;
 
     @NotBlank(message = "First name is required")
+    @Size(max = 255, message = "First name must be at most 255 characters")
     private String firstName;
 
     @NotBlank(message = "Last name is required")
+    @Size(max = 255, message = "Last name must be at most 255 characters")
     private String lastName;
 
     private Role role = Role.ROLE_CUSTOMER;
 
+    @Size(max = 255, message = "Store name must be at most 255 characters")
     private String storeName;
 
     private String storeDescription;
