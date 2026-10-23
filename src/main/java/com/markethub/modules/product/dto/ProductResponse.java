@@ -17,13 +17,17 @@ public class ProductResponse {
     private Long sellerId;
     private String sellerName;
     private Long categoryId;
+    /** Category display name — lets the storefront render category-aware image fallbacks. */
+    private String categoryName;
+    /** Optional product image URL (relative path or absolute). Null when unset. */
+    private String imageUrl;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
     public ProductResponse() {
     }
 
-    public ProductResponse(Long id, String name, String slug, String description, BigDecimal price, Integer stockQuantity, ProductStatus status, Long sellerId, String sellerName, Long categoryId, LocalDateTime createdAt, LocalDateTime updatedAt) {
+    public ProductResponse(Long id, String name, String slug, String description, BigDecimal price, Integer stockQuantity, ProductStatus status, Long sellerId, String sellerName, Long categoryId, String categoryName, String imageUrl, LocalDateTime createdAt, LocalDateTime updatedAt) {
         this.id = id;
         this.name = name;
         this.slug = slug;
@@ -34,6 +38,8 @@ public class ProductResponse {
         this.sellerId = sellerId;
         this.sellerName = sellerName;
         this.categoryId = categoryId;
+        this.categoryName = categoryName;
+        this.imageUrl = imageUrl;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
     }
@@ -116,6 +122,22 @@ public class ProductResponse {
 
     public void setCategoryId(Long categoryId) {
         this.categoryId = categoryId;
+    }
+
+    public String getCategoryName() {
+        return categoryName;
+    }
+
+    public void setCategoryName(String categoryName) {
+        this.categoryName = categoryName;
+    }
+
+    public String getImageUrl() {
+        return imageUrl;
+    }
+
+    public void setImageUrl(String imageUrl) {
+        this.imageUrl = imageUrl;
     }
 
     public LocalDateTime getCreatedAt() {

@@ -35,6 +35,14 @@ public class ProductRequest {
     @NotNull(message = "Category id is required")
     private Long categoryId;
 
+    /**
+     * Optional image location (absolute URL or app-relative path such as
+     * `/demo/products/…`). Nullable and backward compatible: clients that
+     * omit it keep working and the storefront renders a category fallback.
+     */
+    @Size(max = 500, message = "Image URL must be at most 500 characters")
+    private String imageUrl;
+
     public ProductRequest() {
     }
 
@@ -93,5 +101,13 @@ public class ProductRequest {
 
     public void setCategoryId(Long categoryId) {
         this.categoryId = categoryId;
+    }
+
+    public String getImageUrl() {
+        return imageUrl;
+    }
+
+    public void setImageUrl(String imageUrl) {
+        this.imageUrl = imageUrl;
     }
 }

@@ -47,6 +47,10 @@ public class Product extends BaseEntity {
     @Builder.Default
     private ProductStatus status = ProductStatus.ACTIVE;
 
+    /** Optional image location; nullable so existing rows/clients are unaffected. */
+    @Column(name = "image_url")
+    private String imageUrl;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "seller_id", nullable = false)
     private SellerProfile seller;

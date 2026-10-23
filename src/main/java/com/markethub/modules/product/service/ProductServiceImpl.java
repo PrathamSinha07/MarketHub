@@ -51,6 +51,7 @@ public class ProductServiceImpl implements ProductService {
                 .price(request.getPrice())
                 .stockQuantity(request.getStockQuantity())
                 .status(ProductStatus.ACTIVE)
+                .imageUrl(request.getImageUrl())
                 .seller(sellerProfile)
                 .category(category)
                 .build();
@@ -125,6 +126,7 @@ public class ProductServiceImpl implements ProductService {
         product.setPrice(request.getPrice());
         product.setStockQuantity(request.getStockQuantity());
         product.setCategory(category);
+        product.setImageUrl(request.getImageUrl());
 
         Product updatedProduct = productRepository.save(product);
         return toResponse(updatedProduct);
@@ -188,6 +190,8 @@ public class ProductServiceImpl implements ProductService {
                 product.getSeller().getId(),
                 product.getSeller().getStoreName(),
                 product.getCategory().getId(),
+                product.getCategory().getName(),
+                product.getImageUrl(),
                 product.getCreatedAt(),
                 product.getUpdatedAt()
         );
