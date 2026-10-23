@@ -40,13 +40,19 @@ export function Hero() {
   }
 
   return (
-    <section className="border-b border-zinc-200 bg-white">
-      <div className={container}>
-        <div className="mx-auto max-w-2xl py-14 text-center sm:py-16">
-          <p className="text-sm font-semibold uppercase tracking-wide text-indigo-600">
+    <section className="relative overflow-hidden border-b border-zinc-200 bg-gradient-to-b from-indigo-50/80 via-white to-white">
+      {/* Restrained decorative wash — keeps the hero feeling designed
+          without implying imagery we don't have. */}
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute -top-24 left-1/2 h-72 w-[36rem] -translate-x-1/2 rounded-full bg-indigo-100/60 blur-3xl"
+      />
+      <div className={`${container} relative`}>
+        <div className="mx-auto max-w-2xl py-16 text-center sm:py-20">
+          <p className="text-sm font-semibold uppercase tracking-wider text-indigo-600">
             Multi-vendor marketplace
           </p>
-          <h1 className="mt-3 text-3xl font-semibold tracking-tight text-zinc-900 sm:text-4xl">
+          <h1 className="mt-4 text-3xl font-semibold tracking-tight text-zinc-900 sm:text-4xl">
             Quality products from independent sellers
           </h1>
           <p className="mt-4 text-base leading-7 text-zinc-600">

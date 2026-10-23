@@ -1,20 +1,44 @@
 import Link from "next/link";
 import type { Category } from "@/types/category";
+import { cn } from "@/lib/utils";
+import { themeFor } from "@/lib/categoryTheme";
 
 /**
- * Category card. The title and arrow link to the category's catalog; the
- * subcategory chips (real data from the API) are links of their own so
- * shoppers can drill straight into a subcategory's products.
+ * Category card. Shares the department glyph and tint with the product-media
+ * fallback so a department looks the same everywhere on the storefront. The
+ * title and arrow link to the category's catalog; the subcategory chips (real
+ * data from the API) are links of their own so shoppers can drill straight
+ * into a subcategory's products.
  */
 export function CategoryCard({ category }: { category: Category }) {
   const subCategories = category.subCategories ?? [];
   const preview = subCategories.slice(0, 3);
   const extraCount = subCategories.length - preview.length;
   const categoryHref = `/products?categoryId=${category.id}`;
+  const theme = themeFor(category.name);
 
   return (
-    <article className="group flex items-start justify-between gap-4 rounded-lg border border-zinc-200 bg-white p-5 transition-colors hover:border-indigo-300 hover:shadow-sm">
-      <div className="min-w-0">
+    <article className="group flex items-start gap-4 rounded-xl border border-zinc-200 bg-white p-5 transition-all hover:-translate-y-0.5 hover:border-zinc-300 hover:shadow-md focus-within:ring-2 focus-within:ring-indigo-600 focus-within:ring-offset-2">
+      <span
+        aria-hidden="true"
+        className={cn(
+          "flex h-11 w-11 shrink-0 items-center justify-center rounded-lg",
+          theme.bg
+        )}
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          strokeWidth={1.5}
+          stroke="currentColor"
+          className={cn("h-6 w-6", theme.ink)}
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d={theme.path} />
+        </svg>
+      </span>
+
+      <div className="min-w-0 flex-1">
         <h3 className="text-base font-semibold">
           <Link
             href={categoryHref}
