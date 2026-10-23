@@ -8,7 +8,7 @@ Multi-vendor marketplace: a **Next.js** storefront/seller dashboard talking to a
 | Frontend | Next.js 16 (App Router), React 19, Tailwind, TypeScript — `frontend/` |
 | Backend  | Spring Boot 3.5, Spring Security (JWT), Spring Data JPA, Flyway — `src/` |
 | Database | PostgreSQL (16+; 18 verified), Flyway migrations  |
-| Tests    | JUnit 5 + full-stack PostgreSQL suite (195), Playwright (72) |
+| Tests    | JUnit 5 + full-stack PostgreSQL suite (196), Playwright (72: 66 pass, 6 env-skipped) |
 
 > **Payment processing is intentionally incomplete.** Checkout creates orders
 > with status `CONFIRMED` and decrements stock; no money moves. The payment
@@ -22,6 +22,8 @@ src/main/java/com/markethub/     Spring Boot application (modular monolith)
 src/main/resources/              application*.yml + db/migration (Flyway)
 src/test/java/com/markethub/     unit, @WebMvcTest and PostgreSQL integration tests
 frontend/                        Next.js app + Playwright specs (frontend/tests)
+frontend/public/demo/products/    demo-catalog photos + ATTRIBUTION.md
+scripts/                         dev-only launchers and the demo-catalog seeder
 .env.example                     backend environment template (placeholders only)
 DEPLOYMENT.md                    production deployment runbook
 TASK_LOG.md                      engineering work log (decisions, evidence, risks)
@@ -103,6 +105,46 @@ npm run dev
 
 Open http://localhost:3000.
 
+## Demo catalog (development-only)
+
+Migrations ship **no seed data**, so a freshly created database is empty (and
+the Playwright suite, which expects the `Electronics` category at id 2, will
+not pass against an empty database). For a portfolio-ready local storefront,
+an explicit, repeatable seeder fills a **local development database** with a
+curated demo catalog:
+
+```powershell
+# 1. start the backend once against the target DB (applies Flyway V1..V3)
+# 2. then seed (the seeder reads DB_URL/DB_PASSWORD from the environment):
+$env:DB_PASSWORD = "<your database password>"          # same value you run the backend with
+# $env:DB_URL defaults to jdbc:postgresql://localhost:5432/markethub_db;
+# override it only when seeding a different local database.
+./scripts/Seed-DemoCatalog.ps1 -Yes
+```
+
+Catalog polluted with `IT ...`/`QA ...` test fixtures from an earlier
+backend/test run? Run this seeder against that same database — it archives
+the leftovers (nothing is deleted) and restores the curated catalog.
+
+What it does — and its safety rails:
+
+- Refuses to run without `-Yes`, refuses non-localhost hosts, refuses any
+  database whose name is not `markethub*`, and uses `psql -w` so bad
+  credentials fail fast instead of hanging.
+- Upserts 5 categories, 4 demo sellers and 16 demo products with fixed ids
+  (re-run any time; rows update in place, nothing is duplicated).
+- **Archives** leftover automated-test products (never deletes them) and
+  removes leftover test categories the suites recreate on demand.
+- Lives in `scripts/demo/seed-demo-catalog.sql` and is applied **only** by
+  this script — never by Flyway — so demo rows can never reach a production
+  schema.
+- Demo seller logins: `demo.<store>@demo.markethub.local`, password
+  `markethub-demo` (development only).
+- Product photos live in `frontend/public/demo/products/` with per-file
+  attribution and license details in `ATTRIBUTION.md` (Wikimedia Commons).
+  Three products intentionally ship without a photo to exercise the
+  category-specific fallback tiles.
+
 ## Database migrations
 
 The schema is owned by **Flyway** (`src/main/resources/db/migration`):
@@ -110,9 +152,12 @@ The schema is owned by **Flyway** (`src/main/resources/db/migration`):
 - `V1__baseline_schema.sql` — full baseline, generated from the JPA entities.
 - `V2__integrity_and_indexes.sql` — `lower(email)` unique index, product
   lookup indexes, redundant webhook index removed.
+- `V3__product_image_url.sql` — nullable `products.image_url` (backward
+  compatible: existing rows and old API clients keep working; missing images
+  render the storefront's category-specific fallback tile).
 - Databases created before Flyway was introduced are adopted automatically
   (`baseline-on-migrate: true`, baseline version 1) and are not rewritten.
-- To change the schema: add `V3__<description>.sql`, update the entities in the
+- To change the schema: add `V4__<description>.sql`, update the entities in the
   same commit, and run the suite. **Never edit an applied migration.**
 - PostgreSQL profiles run with `ddl-auto: validate` by default (the `local` H2
   profile keeps `update`), so a code/schema mismatch fails startup instead of
@@ -123,9 +168,18 @@ The schema is owned by **Flyway** (`src/main/resources/db/migration`):
 ## Tests
 
 ```powershell
-# Backend: 195 tests (unit + @WebMvcTest + PostgreSQL full-stack integration).
+# Backend: 196 tests (unit + @WebMvcTest + PostgreSQL full-stack integration).
 # Needs DB_PASSWORD and JWT_SECRET in the environment, same as running the app.
+#
+# IMPORTANT: point DB_URL at a DEDICATED TEST database, not the database your
+# application serves. The suite intentionally creates ACTIVE "IT ..."/"QA ..."
+# fixtures; run it against the serving database and those fixtures leak into
+# the customer-facing catalog.
+#   createdb markethub_test   (once)
+#   $env:DB_URL = "jdbc:postgresql://localhost:5432/markethub_test"
 ./mvnw.cmd -B test
+# Fixtures leaked into a serving database anyway? The development seeder
+# archives them - see the Demo catalog section.
 
 # Frontend: lint, types, production build
 cd frontend
