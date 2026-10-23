@@ -3,6 +3,8 @@ export interface CartItemResponse {
   cartItemId: number;
   productId: number;
   productName: string;
+  /** Product image location, when the product has one. */
+  imageUrl?: string | null;
   quantity: number;
   unitPrice: number;
   subtotal: number;

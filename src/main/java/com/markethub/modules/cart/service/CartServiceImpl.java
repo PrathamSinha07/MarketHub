@@ -193,6 +193,7 @@ public class CartServiceImpl implements CartService {
                         item.getId(),
                         item.getProduct().getId(),
                         item.getProduct().getName(),
+                        item.getProduct().getImageUrl(),
                         item.getQuantity(),
                         item.getProduct().getPrice(),
                         item.getProduct().getPrice().multiply(BigDecimal.valueOf(item.getQuantity()))

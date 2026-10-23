@@ -7,6 +7,8 @@ public class CartItemResponse {
     private Long cartItemId;
     private Long productId;
     private String productName;
+    /** Product image location, when the product has one (else null). */
+    private String imageUrl;
     private Integer quantity;
     private BigDecimal unitPrice;
     private BigDecimal subtotal;
@@ -14,10 +16,11 @@ public class CartItemResponse {
     public CartItemResponse() {
     }
 
-    public CartItemResponse(Long cartItemId, Long productId, String productName, Integer quantity, BigDecimal unitPrice, BigDecimal subtotal) {
+    public CartItemResponse(Long cartItemId, Long productId, String productName, String imageUrl, Integer quantity, BigDecimal unitPrice, BigDecimal subtotal) {
         this.cartItemId = cartItemId;
         this.productId = productId;
         this.productName = productName;
+        this.imageUrl = imageUrl;
         this.quantity = quantity;
         this.unitPrice = unitPrice;
         this.subtotal = subtotal;
@@ -45,6 +48,14 @@ public class CartItemResponse {
 
     public void setProductName(String productName) {
         this.productName = productName;
+    }
+
+    public String getImageUrl() {
+        return imageUrl;
+    }
+
+    public void setImageUrl(String imageUrl) {
+        this.imageUrl = imageUrl;
     }
 
     public Integer getQuantity() {
