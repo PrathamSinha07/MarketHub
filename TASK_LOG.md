@@ -3,14 +3,14 @@
 Working log so progress survives context limits. Updated after each cohesive stage.
 Nothing is committed to git without explicit owner approval.
 
-> **Note (updated Session 012 / Day 5):** the "Remaining known limitations" section
-> at the bottom of this log is **stale** — see "Day 2", "Day 3", "Day 4" and
-> "Day 5" below. The backend runs against real PostgreSQL 18 with Flyway-managed
-> schema (`V1` + `V2`), Playwright browser QA is in place (72 tests), and the
-> frontend has had its design/UX pass.
-> Days 2–4 were committed and pushed (commits `6362a90`…`ee498f1`, HEAD ==
-> `origin/main`);
-> **Day 5 (Sessions 011–012) changes are uncommitted pending owner approval.**
+> **Note (updated Session 013 / Day 6):** Days 1–5 are committed
+> (`3d3bc21`…`6397d75`, HEAD `6397d75`, 6 commits ahead of `origin/main`).
+> **Day 6 (Session 013, portfolio-quality storefront sprint) changes are
+> uncommitted pending owner approval** — see the "Day 6" section below.
+> Payment semantics remain intentionally incomplete (CONFIRMED ≠ paid), the
+> backend runs against real PostgreSQL with Flyway-managed schema
+> (`V1`…`V3`), and the storefront now has a curated development-only demo
+> catalog with real product photography.
 
 ## Environment facts (verified)
 
@@ -448,10 +448,10 @@ Verification used an **isolated throwaway PostgreSQL 18** on `127.0.0.1:25432`
 only credential in reach is the exposed one — which must not be used. The
 system PostgreSQL services were not touched.
 
-### Files changed (Day 5) — 38 uncommitted paths
+### Files changed (Day 5) — 38 paths, since committed
 
-See `git status` for the authoritative list: 17 backend main/test files,
-17 frontend files, `.env.example`, plus untracked `scripts/`,
+See the six commits `3d3bc21`…`6397d75` (owner-approved grouping): 17 backend
+main/test files, 17 frontend files, `.env.example`, `scripts/`,
 `V2__integrity_and_indexes.sql`, `CategoryServiceImplTest.java`,
 `JwtAuthenticationFilterTest.java`.
 
@@ -460,4 +460,194 @@ See `git status` for the authoritative list: 17 backend main/test files,
 1. Owner review of the Day 5 working tree → **explicit approval to commit**.
 2. Owner-action: rotate the exposed DB password (R1, unchanged).
 3. Deployment preparation remains per `DEPLOYMENT.md` — nothing deployed.
+   → *Superseded: Day 5 was committed as six commits (`3d3bc21`…`6397d75`),
+   pending push approval. See Day 6.*
+
+---
+
+## Day 6 (Session 013) — portfolio-quality storefront sprint
+
+### Root causes of the bad homepage
+
+1. **Random-suffixed names** ("IT Cart Product cf0ec24c3a65", "IT Category
+   d395013270a4"): leftover automated-test fixtures that the Java integration
+   suite and the Playwright API helpers create on every run and leave behind
+   in the database. They were `ACTIVE`, so the public catalog listed them.
+2. **Blank product tiles**: the `Product` entity had **no image column at
+   all** — not in the entity, DTOs, frontend types, or UI. Every product
+   rendered the same neutral monogram placeholder by design.
+3. **No curated demo data**: migrations deliberately ship no seed rows, so a
+   local database was either empty or polluted test leftovers.
+
+### Changes (Day 6)
+
+Backend:
+
+- `Product.imageUrl` — nullable `varchar(500)` column via new
+  `V3__product_image_url.sql` (backward compatible; old clients unaffected).
+- `ProductResponse` gains `imageUrl` + `categoryName` (the latter drives the
+  category-aware fallback); `ProductRequest.imageUrl` optional, ≤ 500 chars;
+  create/update/toResponse map it. `CartItemResponse.imageUrl` so cart rows
+  show the same media. New integration test
+  `productImageUrlsRoundTripAndAreOptional` (create with image → echoed +
+  publicly visible; update without the field → cleared, not rejected).
+
+Frontend:
+
+- `ProductMedia` rewritten: real photos (aspect-locked, `object-cover`, lazy)
+  with a deliberate category-specific fallback (soft gradient + department
+  glyph) for products without imagery; themes shared with `CategoryCard`
+  through new `src/lib/categoryTheme.ts`.
+- `ProductCard` redesigned: category eyebrow → 2-line name → seller → price +
+  stock badge → aligned "View details"; equal heights, hover lift,
+  `focus-within` ring. Hero gets an indigo wash; `CategoryCard` gets the
+  matching glyph tile. Types extended (`imageUrl`, `categoryName`).
+
+Demo data (development-only, explicit, repeatable):
+
+- `scripts/demo/seed-demo-catalog.sql` + `scripts/Seed-DemoCatalog.ps1`:
+  refuses to run without `-Yes`, refuses non-localhost hosts and non
+  `markethub*` databases, uses `psql -w` (fail-fast, no password prompt).
+  Archives leftover test products (never deletes), removes leftover test
+  categories (recreated on demand by the suites), upserts fixed-id demo rows,
+  staggers `created_at` for deterministic "New arrivals", bumps sequences.
+- 16 products / 5 categories / 4 sellers
+  (`demo.<store>@demo.markethub.local` / `markethub-demo`, development only).
+  Electronics is fixed at category id 2 (Playwright fixture parity).
+- 13 genuine product photos from Wikimedia Commons in
+  `frontend/public/demo/products/` with per-file attribution + license in
+  `ATTRIBUTION.md`; 3 products intentionally ship without a photo so the
+  fallback design is visible. Migrations still seed nothing.
+
+### Verification (Day 6 — isolated PostgreSQL 18.6 on 127.0.0.1:25432;
+owner's 5432/5433 untouched)
+
+| Check | Result |
+| --- | --- |
+| Backend suite (fresh DB, Flyway V1→V3 validated) | **196/196, BUILD SUCCESS** |
+| Frontend lint | **0 errors, 0 warnings** |
+| TypeScript `tsc --noEmit` | **exit 0** |
+| Production build | **exit 0**, 16 routes |
+| Playwright (desktop + mobile) | **66 passed / 0 failed / 6 skipped** |
+| Seeded catalog API | 16 ACTIVE products; both re-seeds idempotent |
+| Visual review | 6 screenshots captured & inspected (desktop home/catalog/detail×2, mobile home/catalog) |
+
+Two defects were found *by* the visual review and fixed: the cleanup missed
+leftover test **categories** (visible on the homepage), and the first
+screenshot pass raced lazy-loaded images (capture script now scrolls and
+waits for `img.complete`). No test was weakened or removed; the only test
+edits were the three `ProductResponse`/`CartItemResponse` constructor
+call-sites updated for the new fields and one new round-trip test.
+
+Notes/limitations: demo photos are illustrative, not merchant inventory
+(disclosed in README + ATTRIBUTION.md); currency display is the app's
+existing default and was not changed; the seeder expects Flyway to have run
+once (start the backend before the first seed); a Playwright run creates
+fresh QA fixtures, so re-run the seeder afterwards to restore the clean
+demo catalog.
+
+### Files changed (Day 6) — uncommitted, pending owner approval
+
+See `git status` for the authoritative list: backend product/cart DTOs,
+entity, service, V3 migration + 4 test files; frontend components, lib,
+types; new `scripts/` seeder + demo seed SQL; 13 demo photos +
+`ATTRIBUTION.md`; README + this log.
+
+### Next unfinished task
+
+1. Owner review of the Day 6 working tree → **explicit approval to commit**.
+2. Push of the 6 committed + Day 6 work still awaits approval.
+3. Owner-action: rotate the exposed DB password (R1, unchanged).
+4. Deployment preparation remains per `DEPLOYMENT.md` — nothing deployed.
+
+## Day 7 — Investigating the "stale live catalog" report (2026-10-22)
+
+The owner reported that their browser still showed generated test names
+("IT Race Product 1f7395591864", …) with category fallbacks instead of the
+curated demo catalog, contradicting the Day 6 report. Diagnosis found **two
+stacks, two different truths**:
+
+1. **Nothing from MarketHub was running** at inspection time. Port :3000 was
+   held by a *different project* (another Next.js dev server from
+   `E:\Shri Sai Vatika`) — untouched throughout. The stale screenshots came
+   from an earlier run of the owner's own stack, whose backend used the
+   default `DB_URL` → `jdbc:postgresql://localhost:5432/markethub_db`.
+2. **Root cause of the stale names:** that default DB is the owner's local
+   PostgreSQL, and the README's own test instructions defaulted `DB_URL` to
+   the *same* database the app serves. Every `mvnw test` run therefore poured
+   fresh `ACTIVE` "IT …" fixtures into the customer-facing catalog — names
+   traced to `MarketHubIntegrationTest` lines 245/299/301/497. The Day 6
+   demo catalog had only ever been seeded into the isolated verification
+   database (:25432), so the owner's stack could never show it. The "blue
+   monitor everywhere" was the *correct* Electronics fallback rendering for
+   image-less Electronics fixtures — no image-pipeline bug existed.
+
+Fixes (no test weakened):
+
+- `theDataSourceIsRealPostgreSQL` now accepts any `markethub*` PostgreSQL
+  database (was: literal `markethub_db`), so the suite can run against a
+  dedicated `markethub_test` database. The guard's intent (real PostgreSQL,
+  markethub-family dev DB, never H2) is preserved and re-commented.
+- README test instructions now set `DB_URL` to `markethub_test` and explain
+  the fixture-leak mechanics.
+
+Verification (all real, 2026-10-22 evening):
+
+| Check | Result |
+|---|---|
+| Backend suite vs `markethub_test` | **196/196, BUILD SUCCESS**; 11 IT fixtures landed only in `markethub_test` (read-only count), serving DB untouched |
+| Playwright (live browser, Edge) | **66 passed / 0 failed / 6 skipped** |
+| Browser audit (`audit2.mjs`, 6 pages) | 0 console errors, 0 page errors, 0 failed requests; 12 distinct `/demo/products/*.jpg` responses `200 image/jpeg`; `naturalWidth > 0` for every photo; 0 fixture names in DOM |
+| API + serving DB parity | 16 ACTIVE / 13 with images / 3 intentional fallbacks / 0 fixtures — API and SQL agree before *and* after the suite + re-seed |
+| lint / tsc / build | 0 problems / exit 0 / exit 0 (16 routes) |
+
+Notes: the frontend ran on **:3001** this round because :3000 belongs to the
+owner's other project; the backend therefore started with
+`CORS_ALLOWED_ORIGINS=http://localhost:3001` (property-driven, default
+`:3000` unchanged). One real-machine gotcha confirmed: on this machine the
+owner's PostgreSQL (:5432) has no credentials available to the agent
+(correctly — the seeder refuses to guess), so their serving database still
+contains their old fixtures; the exact one-command cleanup for it is in the
+README seeder section and only needs the owner's own `DB_PASSWORD`.
+
+### Next unfinished task
+
+1. Owner: run `scripts/Seed-DemoCatalog.ps1 -Yes` with `DB_URL`/`DB_PASSWORD`
+   pointed at **their** `localhost:5432/markethub_db` (one command, README)
+   to archive the old fixtures there and seed the demo catalog.
+2. Owner review of the Day 6 + 7 working tree → **explicit approval to commit**.
+3. Push of the 6 committed + Day 6/7 work still awaits approval.
+4. Owner-action: rotate the exposed DB password (R1, unchanged).
+5. Deployment preparation remains per `DEPLOYMENT.md` — nothing deployed.
+
+### Day 7 addendum — final local repair pass (2026-10-22 night)
+
+The owner's own stack was live this session and was verified directly:
+
+- Backend (owner's `mvnw spring-boot:run`, pid 21492) established connections
+  prove it serves **127.0.0.1:5432** (the owner's PostgreSQL). Live API:
+  **135 ACTIVE products = 66 "IT" + 64 "QA" + 5 early smoke-test leftovers**
+  ("Dup", "HttpClient Widget <ts>", "Smoke Test Widget <ts>" — Books
+  category, id 3), **0 with imageUrl**, only category `2:Electronics`.
+- No safe authentication path exists for the agent on :5432 (no `.env`, no
+  pgpass, no shell `DB_*` vars; passwordless `psql -w` fails fast with
+  `fe_sendauth`). Per the task's own rule the seeder was **not** run there;
+  no password was guessed and the database target was not switched.
+- Seeder hardening (no test weakened, archiving only): the SQL now also
+  archives the three observed smoke-test product families, and re-homes the
+  leftover `Books` test category's fixture products before the category
+  cleanup — guarded by product name so a real Books category with real
+  products would never be touched. All 13 image paths referenced by the SQL
+  verified present in `frontend/public/demo/products/` (byte-exact files).
+- Frontend moved from :3001 back to **:3000** (its README/Playwright port):
+  the backend's CORS allowlist only admits `http://localhost:3000`, so the
+  :3001 storefront was cross-origin blocked (probed `403`, no
+  `Access-Control-Allow-Origin`). Backend reused as-is (never restarted,
+  never killed); `Access-Control-Allow-Origin: http://localhost:3000` now
+  confirmed on live responses.
+- Current-state browser audit (Edge, desktop home/catalog/detail): storefront
+  loads with **0 page errors / 0 failed requests**, correctly shows today's
+  data (fixture names, 0 photos — no DB row has an image yet), demo JPEGs
+  served from :3000 return `200 image/jpeg` (sampled 3), and the unseeded
+  DB's missing demo id 404s cleanly on the detail page. lint 0, tsc 0.
 
