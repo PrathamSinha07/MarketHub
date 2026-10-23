@@ -63,6 +63,7 @@ function CartRow({
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
         <ProductMedia
           name={item.productName}
+          imageUrl={item.imageUrl}
           size="sm"
           className="h-16 w-16 shrink-0 rounded-md border border-zinc-200"
         />
