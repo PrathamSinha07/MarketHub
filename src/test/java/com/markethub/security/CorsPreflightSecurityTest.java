@@ -106,6 +106,7 @@ class CorsPreflightSecurityTest {
     private ProductResponse sampleProduct() {
         return new ProductResponse(100L, "Test Product", "test-product", "A product",
                 new BigDecimal("19.99"), 5, ProductStatus.ACTIVE, 2L, "seller@example.com", 1L,
+                "Electronics", null,
                 LocalDateTime.of(2026, 10, 6, 12, 0), LocalDateTime.of(2026, 10, 6, 12, 0));
     }
 

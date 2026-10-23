@@ -92,7 +92,7 @@ class CartControllerTest {
     }
 
     private CartResponse sampleResponse() {
-        CartItemResponse item = new CartItemResponse(50L, 100L, "Wireless Mouse", 2,
+        CartItemResponse item = new CartItemResponse(50L, 100L, "Wireless Mouse", null, 2,
                 new BigDecimal("19.99"), new BigDecimal("39.98"));
         return new CartResponse(10L, List.of(item), new BigDecimal("39.98"));
     }

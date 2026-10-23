@@ -75,6 +75,7 @@ class ProductControllerTest {
     private ProductResponse sampleProduct() {
         return new ProductResponse(100L, "Wireless Mouse", "wireless-mouse", "A mouse",
                 new BigDecimal("19.99"), 5, ProductStatus.ACTIVE, 10L, "Seller Store", 1L,
+                "Electronics", null,
                 LocalDateTime.of(2026, 10, 6, 12, 0), LocalDateTime.of(2026, 10, 6, 12, 0));
     }
 

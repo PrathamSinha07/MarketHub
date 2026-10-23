@@ -89,8 +89,12 @@ class MarketHubIntegrationTest {
             assertTrue(url.startsWith("jdbc:postgresql"),
                     "Integration tests must run against PostgreSQL but the datasource was: " + url);
             assertEquals("PostgreSQL", conn.getMetaData().getDatabaseProductName());
-            assertTrue(conn.getMetaData().getURL().contains("markethub_db"),
-                    "Expected the markethub_db database, got: " + url);
+            // Any markethub* database name is accepted so the suite can run
+            // against a dedicated fixture database (e.g. markethub_test) that
+            // is separate from the catalog the application actually serves.
+            // This keeps test products out of the customer-facing catalog.
+            assertTrue(url.matches(".*jdbc:postgresql://[^/]+/markethub\\w*.*"),
+                    "Expected a markethub* PostgreSQL database, got: " + url);
         }
     }
 
@@ -405,6 +409,49 @@ class MarketHubIntegrationTest {
                 data(get(API + "/payments/order/" + orderId, customer)).get("status").asText());
         assertEquals("PENDING", data(get(API + "/payments", customer))
                 .get(0).get("status").asText());
+    }
+
+    /**
+     * Product imagery round-trips through the API: sellers can set an optional
+     * image URL, it is returned publicly, and legacy clients that omit it keep
+     * working (null in, null out). `categoryName` is returned as well so the
+     * storefront can render category-aware fallbacks.
+     */
+    @Test
+    void productImageUrlsRoundTripAndAreOptional() {
+        Seller seller = registerSeller("img-store");
+        Long category = ensureCategory();
+
+        // With an image: echoed on create and visible on the public listing.
+        Map<String, Object> body = new HashMap<>();
+        body.put("name", "IT Imaged Product " + sfx);
+        body.put("slug", "it-img-" + sfx);
+        body.put("description", "Has an image");
+        body.put("price", new BigDecimal("20.00"));
+        body.put("stockQuantity", 10);
+        body.put("categoryId", category);
+        body.put("imageUrl", "/demo/products/it-test.jpg");
+        ResponseEntity<String> created = post(API + "/products", body, seller.token);
+        assertEquals(201, created.getStatusCode().value(), created.getBody());
+        long productId = data(created).get("id").asLong();
+        assertEquals("/demo/products/it-test.jpg", data(created).get("imageUrl").asText());
+        assertFalse(data(created).get("categoryName").isNull(),
+                "categoryName must be present for category-aware fallbacks");
+
+        JsonNode publicView = data(get(API + "/products/" + productId, null));
+        assertEquals("/demo/products/it-test.jpg", publicView.get("imageUrl").asText());
+
+        // Update without the field clears it - old clients stay compatible.
+        Map<String, Object> update = new HashMap<>();
+        update.put("name", "IT Imaged Product " + sfx);
+        update.put("slug", "it-img-" + sfx);
+        update.put("description", "Image removed");
+        update.put("price", new BigDecimal("22.00"));
+        update.put("stockQuantity", 8);
+        update.put("categoryId", category);
+        JsonNode updated = data(put(API + "/products/" + productId, update, seller.token));
+        assertTrue(updated.get("imageUrl").isNull(),
+                "omitting imageUrl on update must clear it, not fail");
     }
 
     /**
