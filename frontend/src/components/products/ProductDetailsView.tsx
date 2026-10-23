@@ -111,6 +111,8 @@ export function ProductDetailsView({
           <div className="min-w-0 lg:col-start-1 lg:row-start-1">
             <ProductMedia
               name={product.name}
+              imageUrl={product.imageUrl}
+              categoryName={product.categoryName}
               size="lg"
               className="aspect-[4/3] w-full rounded-lg border border-zinc-200"
             />

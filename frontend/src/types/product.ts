@@ -12,6 +12,10 @@ export interface Product {
   sellerId: number;
   sellerName?: string;
   categoryId: number;
+  /** Category display name; drives the category-specific image fallback. */
+  categoryName?: string | null;
+  /** Optional image location (relative path or absolute URL). */
+  imageUrl?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -24,6 +28,7 @@ export interface ProductRequest {
   price: number;
   stockQuantity: number;
   categoryId: number;
+  imageUrl?: string;
 }
 
 /** Spring Data page returned by GET /products. */
